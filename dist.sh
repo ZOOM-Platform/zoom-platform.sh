@@ -32,6 +32,6 @@ tar -xzf innoextract-upx.tar.gz
 
 # Add innoextract binary to end
 printf '__INNOEXTRACT_BINARY__\n' >> "$FINAL_FILE"
-base64 -w 0 innoextract >> "$FINAL_FILE"
+base64 -w 0 innoextract-upx >> "$FINAL_FILE"
 
 chmod +x "$FINAL_FILE"
