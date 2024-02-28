@@ -6,6 +6,7 @@
 #set -x
 
 #__INNOEXTRACT_BINARY_START__
+INNOEXTRACT_BINARY_B64=0
 #__INNOEXTRACT_BINARY_END__
 
 INSTALLER_VERSION="DEV"
@@ -18,6 +19,16 @@ USE_ZENITY=0
 (kdialog --version >/dev/null 2>&1 || zenity --version >/dev/null 2>&1) && [ -n "$DISPLAY" ] && CAN_USE_DIALOGS=1
 
 if [ $CAN_USE_DIALOGS -eq 1 ] && ! kdialog --version >/dev/null 2>&1; then USE_ZENITY=1; fi
+
+# .shellcheck will kill ram trying to parse INNOEXTRACT_BINARY_B64
+# when working on the script, just load the bin from working dir
+get_innoext_string() {
+    if [ $INSTALLER_VERSION = "DEV" ]; then
+        printf '%s' "$(base64 -w 0 innoextract)"
+    else
+        printf '%s' "$INNOEXTRACT_BINARY_B64"
+    fi
+}
 
 fatal_error_no_exit() {
     printf "\033[31;1mERROR:\033[0m %s\n" "$*" >&2
@@ -256,7 +267,7 @@ if [ -z "$INSTALL_PATH" ]; then
 fi
 
 # Unpack innoextract into tmp
-base64_dec "$INNOEXTRACT_BINARY_B64" > $INNOEXT_BIN
+base64_dec "$(get_innoext_string)" > $INNOEXT_BIN
 PAYLOAD_DECODED_STATUS=$?
 if [ $PAYLOAD_DECODED_STATUS -ne 0 ]; then fatal_error "Could not decode base64."; fi
 if [ -s "$INNOEXT_BIN" ]; then
