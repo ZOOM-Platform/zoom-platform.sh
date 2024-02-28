@@ -24,7 +24,7 @@ if [ -z "$VERSION" ]; then VERSION="git-$(git rev-parse --short HEAD)"; fi
 sed -i "s/INSTALLER_VERSION=\"DEV\"/INSTALLER_VERSION=\"$VERSION\"/" "$FINAL_FILE"
 
 # Download innoextract binaries
-rm innoextract.tar.gz innoextract-upx.tar.gz
+rm -f innoextract.tar.gz innoextract-upx.tar.gz
 INNOEXT_URLS=$(curl -s "https://api.github.com/repos/doZennn/innoextract/releases/latest" | grep '"browser_download_url":.*innoextract.*.tar.gz' | sed -E 's/.*"([^"]+)".*/\1/')
 echo "$INNOEXT_URLS" | wget -nv -i -
 
