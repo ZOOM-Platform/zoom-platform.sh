@@ -82,7 +82,7 @@ dialog_installer_select() {
         zenity --file-selection --title="Select a ZOOM Platform installer"
         return $?
     else
-        kdialog --getopenfilename :zpinstaller "ZOOM Platform installer (*.exe)" --title "Select a ZOOM Platform installer"
+        kdialog --getopenfilename "$HOME" "ZOOM Platform installer (*.exe)" --title "Select a ZOOM Platform installer"
         return $?
     fi
 }
@@ -92,7 +92,7 @@ dialog_install_dir_select() {
         zenity --file-selection --directory --title="Select an installation directory"
         return $?
     else
-        kdialog --getexistingdirectory :zpinstalldir --title "Select an installation directory"
+        kdialog --getexistingdirectory "$HOME" --title "Select an installation directory"
         return $?
     fi
 }
@@ -481,12 +481,6 @@ while [ $_readlog -eq 1 ]; do
                     ;;
             esac
         fi
-        case $line in
-            *"Exception message"* | *"Got EAbort exception"*)
-                _readlog=0
-                fatal_error "Unknown installation error occured."
-                ;;
-        esac
         case $line in
             *"Exception message"* | *"Got EAbort exception"*)
                 _readlog=0
