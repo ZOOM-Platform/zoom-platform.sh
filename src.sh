@@ -436,8 +436,9 @@ fi
 printf '\n' > "$INSTALL_PATH/drive_c/zoom_installer.log"
 
 # If installer doesn't have custom components then it can be installed silently
+# Disabling for now, need to figure out how to reliably check this
 VERYSILENT=0
-if [ -z "$(get_header_val 'component_count')" ] || [ "$(get_header_val 'component_count')" -eq 0 ]; then VERYSILENT=1; fi
+# if [ -z "$(get_header_val 'component_count')" ] || [ "$(get_header_val 'component_count')" -eq 0 ]; then VERYSILENT=1; fi
 
 # Launch installer in a subprocess
 # Only important stuff like the EULA and configurable items should show.
