@@ -311,7 +311,7 @@ if [ $CAN_USE_DIALOGS -eq 0 ]; then
 fi
 
 # Validate and get some info from installer
-ZOOM_GUID=$($INNOEXT_BIN -s --zoom-game-id "$INPUT_INSTALLER" 2>&1 | trim_string)
+ZOOM_GUID=$($INNOEXT_BIN -s --zoom-game-id "$INPUT_INSTALLER" 2> /dev/null | trim_string)
 ZOOM_GUID_EXIT=$?
 # GUID can be wrong for very old installers, make sure it's a valid string
 if [ $ZOOM_GUID_EXIT -gt 0 ] || ! validate_uuid "$ZOOM_GUID"; then
