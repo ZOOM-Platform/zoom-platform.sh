@@ -15,13 +15,13 @@ INNOEXT_BIN="/tmp/innoextract_zoom"
 ULWGL_BIN="$HOME/.local/share/ULWGL/ulwgl-run"
 
 CAN_USE_DIALOGS=0
-USE_ZENITY=0
+USE_ZENITY=1
 (kdialog --version >/dev/null 2>&1 || zenity --version >/dev/null 2>&1) && [ -n "$DISPLAY" ] && CAN_USE_DIALOGS=1
 
-if [ $CAN_USE_DIALOGS -eq 1 ] && ! kdialog --version >/dev/null 2>&1; then USE_ZENITY=1; fi
+if [ $CAN_USE_DIALOGS -eq 1 ] && ! zenity --version >/dev/null 2>&1; then USE_ZENITY=0; fi
 
-# .shellcheck will kill ram trying to parse INNOEXTRACT_BINARY_B64
-# when working on the script, just load the bin from working dir
+# .shellcheck will consume ram trying to parse INNOEXTRACT_BINARY_B64
+# when working developing, just load the bin from working dir
 get_innoext_string() {
     if [ $INSTALLER_VERSION = "DEV" ]; then
         printf '%s' "$(base64 -w 0 innoextract)"
@@ -82,7 +82,7 @@ dialog_installer_select() {
         zenity --file-selection --title="Select a ZOOM Platform installer"
         return $?
     else
-        kdialog --getopenfilename "$HOME" "ZOOM Platform installer (*.exe)" --title "Select a ZOOM Platform installer"
+        kdialog --getopenfilename . "ZOOM Platform installer (*.exe)" --title "Select a ZOOM Platform installer"
         return $?
     fi
 }
@@ -92,7 +92,7 @@ dialog_install_dir_select() {
         zenity --file-selection --directory --title="Select an installation directory"
         return $?
     else
-        kdialog --getexistingdirectory "$HOME" --title "Select an installation directory"
+        kdialog --getexistingdirectory . --title "Select an installation directory"
         return $?
     fi
 }
