@@ -5,6 +5,9 @@
 
 #set -x
 
+#__INNOEXTRACT_BINARY_START__
+#__INNOEXTRACT_BINARY_END__
+
 INSTALLER_VERSION="DEV"
 REPO_PATH="https://github.com/ZOOM-Platform/zoom-platform.sh"
 INNOEXT_BIN="/tmp/innoextract_zoom"
@@ -253,8 +256,7 @@ if [ -z "$INSTALL_PATH" ]; then
 fi
 
 # Unpack innoextract into tmp
-PAYLOAD_LINE=$(awk '/^__INNOEXTRACT_BINARY__/ {getline; print; exit 0}' "$0") # get the line right after "__INNOEXTRACT_BINARY__"
-base64_dec "$PAYLOAD_LINE" > $INNOEXT_BIN
+base64_dec "$INNOEXTRACT_BINARY_B64" > $INNOEXT_BIN
 PAYLOAD_DECODED_STATUS=$?
 if [ $PAYLOAD_DECODED_STATUS -ne 0 ]; then fatal_error "Could not decode base64."; fi
 if [ -s "$INNOEXT_BIN" ]; then
@@ -437,41 +439,50 @@ if [ -z "$(get_header_val 'component_count')" ] || [ "$(get_header_val 'componen
 
 # Watch the install log
 INSTALLER_FILENAME=$(basename "$INPUT_INSTALLER")
-tail -F "$INSTALL_PATH/drive_c/zoom_installer.log" 2> /dev/null | while read -r line
-do
-    if [ "$VERYSILENT" -eq 1 ]; then
+
+_readlog=1
+while [ $_readlog -eq 1 ]; do
+    while read -r line; do
+        if [ "$VERYSILENT" -eq 1 ]; then
+            case $line in
+                *"Dest filename: "*)
+                    show_log_file_line "$line" "$(get_header_val 'default_dir_name')"
+                    ;;
+                *"Log closed."*)
+                    printf "\nInstallation complete!\n"
+                    _readlog=0
+                    ;;
+            esac
+        else
+            case $line in
+                *"Dest filename: "*)
+                    show_log_file_line "$line" "$(get_header_val 'default_dir_name')"
+                    ;;
+                *"Installation process succeeded."*) # User shouldn't launch the game through the option supplied by Inno, kill installer asap
+                    printf '\nInstallation completed! Force closing installer.\n'
+                    PROTON_VERB=runinprefix "$ULWGL_BIN" taskkill /IM "$INSTALLER_FILENAME" /T /F >/dev/null 2>&1
+                    _readlog=0
+                    ;;
+                *"Log closed."*) # Shouldn't be able to get to this point if killed by above
+                    _readlog=0
+                    fatal_error "Installation failed or canceled."
+                    ;;
+            esac
+        fi
         case $line in
-            *"Dest filename: "*)
-                show_log_file_line "$line" "$(get_header_val 'default_dir_name')"
-                ;;
-            *"Log closed."*)
-                printf "\nInstallation complete!\n"
-                pkill -P $$ tail
+            *"Exception message"* | *"Got EAbort exception"*)
+                _readlog=0
+                fatal_error "Unknown installation error occured."
                 ;;
         esac
-    else
         case $line in
-            *"Dest filename: "*)
-                show_log_file_line "$line" "$(get_header_val 'default_dir_name')"
-                ;;
-            *"Installation process succeeded."*) # User shouldn't launch the game through the option supplied by Inno, kill installer asap
-                printf '\nInstallation completed! Force closing installer.\n'
-                pkill -P $$ tail
-                PROTON_VERB=runinprefix "$ULWGL_BIN" taskkill /IM "$INSTALLER_FILENAME" /T /F >/dev/null 2>&1
-                ;;
-            *"Log closed."*) # Shouldn't be able to get to this point if killed by above
-                pkill -P $$ tail
-                fatal_error "Installation failed or canceled."
+            *"Exception message"* | *"Got EAbort exception"*)
+                _readlog=0
+                fatal_error "Unknown installation error occured."
                 ;;
         esac
-    fi
-    case $line in
-        *"Exception message"*)
-            pkill -P $$ tail
-            fatal_error "Unknown installation error occured."
-            ;;
-    esac
-done
+    done
+done < "$INSTALL_PATH/drive_c/zoom_installer.log"
 
 # Create shortcuts using the shortcuts and icons in C:\proton_shortcuts\
 # https://github.com/ValveSoftware/wine/commit/0a02c50a20ddc8f4a4c540c43a8b8a686023d422
@@ -513,5 +524,3 @@ EOL
             ;;
     esac
 done
-
-exit 0

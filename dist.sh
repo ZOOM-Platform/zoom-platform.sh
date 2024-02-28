@@ -30,8 +30,12 @@ echo "$INNOEXT_URLS" | wget -nv -i -
 # Extract binaries
 tar -xzf innoextract-upx.tar.gz
 
-# Add innoextract binary to end
-printf '__INNOEXTRACT_BINARY__\n' >> "$FINAL_FILE"
+# Add innoextract binary between comments
+START="$(sed -n '1,/^#__INNOEXTRACT_BINARY_START__/p' "$FINAL_FILE")"
+# shellcheck disable=SC2016
+END="$(sed -n '/^#__INNOEXTRACT_BINARY_END__$/,${p;}' "$FINAL_FILE")"
+printf '%s\nINNOEXTRACT_BINARY_B64=' "$START" > "$FINAL_FILE"
 base64 -w 0 innoextract-upx >> "$FINAL_FILE"
+printf '\n%s' "$END" >> "$FINAL_FILE"
 
 chmod +x "$FINAL_FILE"
