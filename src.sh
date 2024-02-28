@@ -12,7 +12,7 @@ INNOEXTRACT_BINARY_B64=0
 INSTALLER_VERSION="DEV"
 REPO_PATH="https://github.com/ZOOM-Platform/zoom-platform.sh"
 INNOEXT_BIN="/tmp/innoextract_zoom"
-ULWGL_BIN="$HOME/.local/share/ULWGL/ulwgl-run"
+ULWGL_BIN=ulwgl-run
 
 CAN_USE_DIALOGS=0
 USE_ZENITY=1
@@ -280,7 +280,9 @@ fi
 
 # Check if ULWGL is installed
 # TODO: Flatpak
-if [ -f "$HOME/.local/share/ULWGL/ulwgl-run" ]; then
+if command -v ulwgl-run 2> /dev/null; then
+    ULWGL_BIN=ulwgl-run
+elif [ -f "$HOME/.local/share/ULWGL/ulwgl-run" ]; then
     ULWGL_BIN="$HOME/.local/share/ULWGL/ulwgl-run"
 elif [ -f "/usr/bin/ulwgl-run" ]; then
     ULWGL_BIN="/usr/bin/ulwgl-run"
