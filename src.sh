@@ -456,7 +456,7 @@ INSTALLER_FILENAME=$(basename "$INPUT_INSTALLER")
 
 _readlog=1
 while [ $_readlog -eq 1 ]; do
-    while read -r line; do
+    while read -r line || [ -n "$line" ]; do
         if [ "$VERYSILENT" -eq 1 ]; then
             case $line in
                 *"Dest filename: "*)
