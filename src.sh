@@ -39,6 +39,10 @@ fatal_error() {
     exit 1
 }
 
+log_info() {
+    printf "\033[33m[\033[35mzoom-platform.sh\033[33m]\033[0m: %s\n" "$*"
+}
+
 base64_dec() {
     _input="$1"
     if command -v base64 > /dev/null; then
@@ -74,7 +78,7 @@ get_desktop_value() {
 show_log_file_line() {
     _install_dir=$(printf '%s' "$2" | sed 's/\\/\\\\/g')
     _line=$(printf '%s' "$1" | sed -n "s/.*Dest filename: $_install_dir//p" | sed 's/^\\//;s/\\/\//g')
-    printf "\r\e[KExtracting file: %s" "$_line"
+    printf "\r\e[K\033[33m[\033[35mzoom-platform.sh\033[33m]\033[0m: Extracting: %s" "$_line"
 }
 
 dialog_installer_select() {
@@ -295,7 +299,7 @@ if [ $CAN_USE_DIALOGS -eq 1 ] && [ -z "$INPUT_INSTALLER" ]; then
     INPUT_INSTALLER=$(dialog_installer_select)
     case $? in
         0)
-            printf '"%s" selected.\n' "$INPUT_INSTALLER";;
+            log_info "Selected \"$INPUT_INSTALLER\"";;
         1)
             fatal_error "No installer chosen.";;
         *)
@@ -317,7 +321,7 @@ ZOOM_GUID=$($INNOEXT_BIN -s --zoom-game-id "$INPUT_INSTALLER" 2> /dev/null | tri
 ZOOM_GUID_EXIT=$?
 # GUID can be wrong for very old installers, make sure it's a valid string
 if [ $ZOOM_GUID_EXIT -gt 0 ] || ! validate_uuid "$ZOOM_GUID"; then
-   fatal_error "This doesn't seem to be a ZOOM Platform installer.
+    fatal_error "This doesn't seem to be a ZOOM Platform installer.
 If you think this is an error, please submit a bug report:
 $REPO_PATH"
 fi
@@ -360,7 +364,7 @@ if [ -z "$INSTALL_PATH" ]; then
         INSTALL_PATH=$(dialog_install_dir_select)
         case $? in
             0)
-                printf '"%s" selected.\n' "$INSTALL_PATH";;
+                log_info "Selected \"$INSTALL_PATH\"";;
             1)
                 fatal_error "No install directory chosen.";;
             *)
@@ -384,7 +388,7 @@ export GAMEID="zoominstall"
 if is_valid_prefix "$INSTALL_PATH"; then
     # Same game is installed on this prefix, must be updating or reinstalling
     if prefix_has_game "$INSTALL_PATH" "$ZOOM_GUID"; then
-        printf "Same game installed on this prefix!\n"
+        log_info "Detected the same game installed in this prefix! [$ZOOM_GUID]"
     else
         if prefix_has_any_game "$INSTALL_PATH"; then
             # Don't let user put different games in a prefix
@@ -432,6 +436,7 @@ if %errorlevel% neq 0 (
 )
 EOL
 
+    log_info "Creating installer reg keys..."
     "$ULWGL_BIN" start "C:\\zoom_regkeys.bat"
 fi
 
@@ -444,6 +449,8 @@ VERYSILENT=0
 
 # Launch installer in a subprocess
 # Only important stuff like the EULA and configurable items should show.
+# "/ZOOMINSTALLERGUID=" is only used so we can easily find the process with pkill -f
+log_info "Launching installer..."
 "$ULWGL_BIN" "$INPUT_INSTALLER" \
     /NORESTART \
     /SP- \
@@ -471,20 +478,23 @@ while [ $_readlog -eq 1 ]; do
         if [ "$VERYSILENT" -eq 1 ]; then
             case $line in
                 *"Log closed."*)
-                    printf "\nInstallation complete!\n"
+                    printf "\n"
+                    log_info "Installer finished!"
                     _readlog=0
                     ;;
             esac
         else
             case $line in
                 *"Need to restart Windows?"*) # User shouldn't launch the game through the option supplied by Inno, kill installer asap
-                    printf '\nInstallation completed! Force closing installer.\n'
+                    printf '\n'
+                    log_info "Installer finished! Force closing."
                     pkill -f "/ZOOMINSTALLERGUID=$ZOOM_GUID"
                     _readlog=0
                     ;;
                 *"Log closed."*) # Shouldn't be able to get to this point if killed by above
                     _readlog=0
-                    fatal_error "Installation failed or canceled."
+                    printf "\n"
+                    fatal_error "Installer failed or canceled."
                     ;;
             esac
         fi
@@ -497,8 +507,9 @@ done < "$INSTALL_PATH/drive_c/zoom_installer.log"
 # https://github.com/ValveSoftware/wine/commit/7c040c3c0f837278e2ef3bb55fc9770f61444b36
 PROTON_SHORTCUTS_PATH="$INSTALL_PATH/drive_c/proton_shortcuts"
 APPLICATIONS_PATH="$HOME/.local/share/applications/"
+log_info "Creating shortcuts..."
 mkdir -p "$INSTALL_PATH/drive_c/zoom_shortcuts/" # temp dir
-sleep 2
+sleep 2 # should be enough time for wine to create shortcuts
 for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
     [ ! -f "$file" ] && continue # safety check if .desktop exists
 
@@ -531,21 +542,22 @@ Type=Application
 Categories=Game
 X-KDE-RunOnDiscreteGpu=true
 EOL
-            printf "Creating: %s\n" "$APPLICATIONS_PATH$_name.desktop"
+            log_info "Creating \"$APPLICATIONS_PATH$_name.desktop\""
             desktop-file-install --delete-original --dir="$APPLICATIONS_PATH" "$_zoomdesktopfile"
             ;;
     esac
 done
 
-# If user opted to creating Desktop shortcuts in the installer then symlink.
+# If user chose to create Desktop shortcuts in the installer, symlink to XDG desktop
 # Shortcut names placed on the Desktop are always the same as what was made in the Start Menu
 for file in "$INSTALL_PATH/drive_c/users/Public/Desktop"/*.lnk; do
     _filename=$(basename "$file" ".lnk")
     _existingdesktoppath="$APPLICATIONS_PATH/$_filename.desktop"
     if [ -f "$_existingdesktoppath" ] && [ -f "$file" ]; then
-        printf "Creating: %s\n" "$HOME/Desktop/$_filename.desktop"
-        ln -sf "$_existingdesktoppath" "$HOME/Desktop/$_filename.desktop"
+        log_info "Creating \"$(xdg-user-dir DESKTOP)/$_filename.desktop\""
+        ln -sf "$_existingdesktoppath" "$(xdg-user-dir DESKTOP)/$_filename.desktop"
     fi
 done
 
-printf "Installation complete!\n"
+log_info "Installation complete! You can now launch your games from the applications launcher."
+log_info "To add to your Steam library, go to \"Games\" -> \"Add a Non-Steam Game to My Library\" and select it from the popup."
