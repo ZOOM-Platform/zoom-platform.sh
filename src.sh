@@ -477,7 +477,7 @@ while [ $_readlog -eq 1 ]; do
             esac
         else
             case $line in
-                *"Installation process succeeded."*) # User shouldn't launch the game through the option supplied by Inno, kill installer asap
+                *"Need to restart Windows?"*) # User shouldn't launch the game through the option supplied by Inno, kill installer asap
                     printf '\nInstallation completed! Force closing installer.\n'
                     pkill -f "/ZOOMINSTALLERGUID=$ZOOM_GUID"
                     _readlog=0
