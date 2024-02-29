@@ -449,19 +449,27 @@ VERYSILENT=0
     /SP- \
     /LOADINF=C:\\zoom_installer.inf \
     /LOG=C:\\zoom_installer.log \
+    /ZOOMINSTALLERGUID="$ZOOM_GUID" \
     "$([ "$VERYSILENT" -eq 1 ] && printf "/VERYSILENT")" &
 
 # Watch the install log
-INSTALLER_FILENAME=$(basename "$INPUT_INSTALLER")
-
 _readlog=1
 while [ $_readlog -eq 1 ]; do
+    sleep 0.010
     while read -r line || [ -n "$line" ]; do
+        case $line in
+            *"Dest filename: "*)
+                show_log_file_line "$line" "$(get_header_val 'default_dir_name')"
+            ;;
+            *"Exception message"* | *"Got EAbort exception"*)
+                _readlog=0
+                fatal_error "Unknown installation error occured."
+                ;;
+        esac
+
+        # Handle killing process based on if silent install chosen
         if [ "$VERYSILENT" -eq 1 ]; then
             case $line in
-                *"Dest filename: "*)
-                    show_log_file_line "$line" "$(get_header_val 'default_dir_name')"
-                    ;;
                 *"Log closed."*)
                     printf "\nInstallation complete!\n"
                     _readlog=0
@@ -469,12 +477,9 @@ while [ $_readlog -eq 1 ]; do
             esac
         else
             case $line in
-                *"Dest filename: "*)
-                    show_log_file_line "$line" "$(get_header_val 'default_dir_name')"
-                    ;;
                 *"Installation process succeeded."*) # User shouldn't launch the game through the option supplied by Inno, kill installer asap
                     printf '\nInstallation completed! Force closing installer.\n'
-                    PROTON_VERB=runinprefix "$ULWGL_BIN" taskkill /IM "$INSTALLER_FILENAME" /T /F >/dev/null 2>&1
+                    pkill -f "/ZOOMINSTALLERGUID=$ZOOM_GUID"
                     _readlog=0
                     ;;
                 *"Log closed."*) # Shouldn't be able to get to this point if killed by above
@@ -483,12 +488,6 @@ while [ $_readlog -eq 1 ]; do
                     ;;
             esac
         fi
-        case $line in
-            *"Exception message"* | *"Got EAbort exception"*)
-                _readlog=0
-                fatal_error "Unknown installation error occured."
-                ;;
-        esac
     done
 done < "$INSTALL_PATH/drive_c/zoom_installer.log"
 
@@ -497,8 +496,11 @@ done < "$INSTALL_PATH/drive_c/zoom_installer.log"
 # https://github.com/ValveSoftware/wine/commit/d0109f6ce75e13a4972371d7ef5819d2614c6d61
 # https://github.com/ValveSoftware/wine/commit/7c040c3c0f837278e2ef3bb55fc9770f61444b36
 PROTON_SHORTCUTS_PATH="$INSTALL_PATH/drive_c/proton_shortcuts/"
+APPLICATIONS_PATH="$HOME/.local/share/applications/"
 mkdir -p "$INSTALL_PATH/drive_c/zoom_shortcuts/" # temp dir
 for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
+    [ ! -f "$file" ] && continue # safety check if .desktop exists
+
     _filename=$(basename "$file")
     case $_filename in
         "Uninstall "*)
@@ -513,7 +515,8 @@ for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
             _iconname="$(get_desktop_value "Icon" "$file")"
 
             # Win -> Linux path
-            _lnkpathlinux=$(PROTON_VERB=getnativepath "$ULWGL_BIN" "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g')" 2> /dev/null)
+            # Unescape windows paths
+            _lnkpathlinux=$(PROTON_VERB=getnativepath "$ULWGL_BIN" "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g; s/\\\([^\\]\)/\1/g')" 2> /dev/null)
             # Get absolute path to largest icon
             _iconpath="$PROTON_SHORTCUTS_PATH/icons/$(find "$PROTON_SHORTCUTS_PATH/icons" -type f -name "*$_iconname.png" -printf '%P\n' | sort -n -tx -k1 -r | head -n 1)"
             cat >"$_zoomdesktopfile" <<EOL
@@ -527,9 +530,21 @@ Type=Application
 Categories=Game
 X-KDE-RunOnDiscreteGpu=true
 EOL
-            _desktoppath="$HOME/.local/share/applications/"
-            printf "Creating: %s\n" "$_desktoppath$_name.desktop"
-            desktop-file-install --delete-original --dir="$_desktoppath" "$_zoomdesktopfile"
+            printf "Creating: %s\n" "$APPLICATIONS_PATH$_name.desktop"
+            desktop-file-install --delete-original --dir="$APPLICATIONS_PATH" "$_zoomdesktopfile"
             ;;
     esac
 done
+
+# If user opted to creating Desktop shortcuts in the installer then symlink.
+# Shortcut names placed on the Desktop are always the same as what was made in the Start Menu
+for file in "$INSTALL_PATH/drive_c/users/Public/Desktop"/*.lnk; do
+    _filename=$(basename "$file" ".lnk")
+    _existingdesktoppath="$APPLICATIONS_PATH/$_filename.desktop"
+    if [ -f "$_existingdesktoppath" ] && [ -f "$file" ]; then
+        printf "Creating: %s\n" "$HOME/Desktop/$_filename.desktop"
+        ln -sf "$_existingdesktoppath" "$HOME/Desktop/$_filename.desktop"
+    fi
+done
+
+printf "Installation complete!\n"
