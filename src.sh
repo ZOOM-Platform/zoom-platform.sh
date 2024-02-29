@@ -499,36 +499,37 @@ done < "$INSTALL_PATH/drive_c/zoom_installer.log"
 PROTON_SHORTCUTS_PATH="$INSTALL_PATH/drive_c/proton_shortcuts/"
 mkdir -p "$INSTALL_PATH/drive_c/zoom_shortcuts/" # temp dir
 for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
-    filename=$(basename "$file")
-    case $filename in
+    _filename=$(basename "$file")
+    case $_filename in
         "Uninstall "*)
             ;;
         *)
-            zoomdesktopfile="$INSTALL_PATH/drive_c/zoom_shortcuts/$filename"
+            _zoomdesktopfile="$INSTALL_PATH/drive_c/zoom_shortcuts/$_filename"
 
             # Get some values from the .desktop
-            name="$(get_desktop_value "Name" "$file")"
-            lnkpathwin="$(get_desktop_value "Exec" "$file")"
-            wmclass="$(get_desktop_value "StartupWMClass" "$file")"
-            iconname="$(get_desktop_value "Icon" "$file")"
+            _name="$(get_desktop_value "Name" "$file")"
+            _lnkpathwin="$(get_desktop_value "Exec" "$file")"
+            _wmclass="$(get_desktop_value "StartupWMClass" "$file")"
+            _iconname="$(get_desktop_value "Icon" "$file")"
 
             # Win -> Linux path
-            lnkpathlinux=$(PROTON_VERB=getnativepath "$ULWGL_BIN" "$(printf '%s' "$lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g')" 2> /dev/null)
+            _lnkpathlinux=$(PROTON_VERB=getnativepath "$ULWGL_BIN" "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g')" 2> /dev/null)
             # Get absolute path to largest icon
-            iconpath="$PROTON_SHORTCUTS_PATH/icons/$(find "$PROTON_SHORTCUTS_PATH/icons" -type f -name "*$iconname.png" -printf '%P\n' | sort -n -tx -k1 -r | head -n 1)"
-            cat >"$zoomdesktopfile" <<EOL
+            _iconpath="$PROTON_SHORTCUTS_PATH/icons/$(find "$PROTON_SHORTCUTS_PATH/icons" -type f -name "*$_iconname.png" -printf '%P\n' | sort -n -tx -k1 -r | head -n 1)"
+            cat >"$_zoomdesktopfile" <<EOL
 [Desktop Entry]
-Name=$name
-Exec=/bin/sh -c "WINEPREFIX='$INSTALL_PATH' GAMEID='ulwgl-$ZOOM_GUID' '$ULWGL_BIN' '$lnkpathlinux'"
-Icon=$iconpath
-StartupWMClass=$wmclass
+Name=$_name
+Exec=/bin/sh -c "WINEPREFIX='$INSTALL_PATH' GAMEID='ulwgl-$ZOOM_GUID' '$ULWGL_BIN' '$_lnkpathlinux'"
+Icon=$_iconpath
+StartupWMClass=$_wmclass
 Terminal=false
 Type=Application
 Categories=Game
 X-KDE-RunOnDiscreteGpu=true
 EOL
-            printf "Creating .desktop for %s\n" "$name"
-            desktop-file-install --delete-original --dir="$HOME/.local/share/applications/" "$zoomdesktopfile"
+            _desktoppath="$HOME/.local/share/applications/"
+            printf "Creating: %s\n" "$_desktoppath$_name.desktop"
+            desktop-file-install --delete-original --dir="$_desktoppath" "$_zoomdesktopfile"
             ;;
     esac
 done
