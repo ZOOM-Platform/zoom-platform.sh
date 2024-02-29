@@ -101,7 +101,7 @@ dialog_infobox() {
     _title=$1
     _msg=$2
     if [ $USE_ZENITY -eq 1 ]; then
-        zenity --info --text="$_msg" --title="$_title"
+        zenity --no-wrap --info --text="$_msg" --title="$_title"
         return $?
     else
         kdialog --msgbox "$_msg" --title "$_title"
