@@ -284,7 +284,7 @@ fi
 
 # Check if ULWGL is installed
 # TODO: Flatpak
-if command -v ulwgl-run 2> /dev/null; then
+if command -v ulwgl-run > /dev/null; then
     ULWGL_BIN=ulwgl-run
 elif [ -f "$HOME/.local/share/ULWGL/ulwgl-run" ]; then
     ULWGL_BIN="$HOME/.local/share/ULWGL/ulwgl-run"
@@ -503,7 +503,7 @@ done < "$INSTALL_PATH/drive_c/zoom_installer.log"
 
 
 CREATE_DESKTOP_ENTRIES=1
-if ! command -v desktop-file-install 2> /dev/null; then
+if ! command -v desktop-file-install > /dev/null; then
     log_error "desktop-file-install is not available. Skipping desktop entry creation."
     CREATE_DESKTOP_ENTRIES=0
 fi
@@ -522,12 +522,12 @@ sleep 2 # should be enough time for wine to create shortcuts
 for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
     [ ! -f "$file" ] && continue # safety check if .desktop exists
 
-    _filename=$(basename "$file")
+    _filename=$(basename "$file" ".desktop")
     case $_filename in
         "Uninstall "*)
             ;;
         *)
-            _zoomdesktopfile="$ZOOM_SHORTCUTS_PATH/$_filename"
+            _zoomdesktopfile="$ZOOM_SHORTCUTS_PATH/$_filename.desktop"
 
             # Get some values from the .desktop
             _name="$(get_desktop_value "Name" "$file")"
@@ -540,9 +540,10 @@ for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
             _lnkpathlinux=$(PROTON_VERB=getnativepath "$ULWGL_BIN" "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g; s/\\\([^\\]\)/\1/g')" 2> /dev/null)
             # Get absolute path to largest icon
             _iconpath="$PROTON_SHORTCUTS_PATH/icons/$(find "$PROTON_SHORTCUTS_PATH/icons" -type f -name "*$_iconname.png" -printf '%P\n' | sort -n -tx -k1 -r | head -n 1)"
-            # Escape linux path for .desktop
+
+            # Escape script path for .desktop
             # shellcheck disable=SC1003
-            _lnkpathlinuxesc=$(printf '%s' "$_lnkpathlinux" | sed 's/\\/\\\\/g; s/ /\\\\ /g; s/(/\\\\(/g; s/)/\\\\)/g; s/'\''/\\\\\'\''/g')
+            _shpathlinuxesc=$(printf '%s' "$ZOOM_SHORTCUTS_PATH/$_filename.sh" | sed 's/\\/\\\\/g; s/ /\\\\ /g; s/(/\\\\(/g; s/)/\\\\)/g; s/'\''/\\\\\'\''/g')
 
             # Create scripts instead of passing directly into .desktop
             cat >"$ZOOM_SHORTCUTS_PATH/$_filename.sh" <<EOL
@@ -558,7 +559,7 @@ EOL
                 cat >"$_zoomdesktopfile" <<EOL
 [Desktop Entry]
 Name=$_name
-Exec=/bin/sh -c "$_lnkpathlinuxesc"
+Exec=/bin/sh -c \\\\"$_shpathlinuxesc\\\\"
 Icon=$_iconpath
 StartupWMClass=$_wmclass
 Terminal=false
@@ -591,4 +592,3 @@ else
     printf '\n'
     log_info "Installation complete! Desktop entry creation was skipped, the launch scripts are in \"$ZOOM_SHORTCUTS_PATH\""
 fi
-
