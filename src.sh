@@ -505,8 +505,9 @@ done < "$INSTALL_PATH/drive_c/zoom_installer.log"
 # https://github.com/ValveSoftware/wine/commit/0a02c50a20ddc8f4a4c540c43a8b8a686023d422
 # https://github.com/ValveSoftware/wine/commit/d0109f6ce75e13a4972371d7ef5819d2614c6d61
 # https://github.com/ValveSoftware/wine/commit/7c040c3c0f837278e2ef3bb55fc9770f61444b36
+GAME_NAME_SAFE=$(get_header_val 'default_group_name')
 PROTON_SHORTCUTS_PATH="$INSTALL_PATH/drive_c/proton_shortcuts"
-APPLICATIONS_PATH="$HOME/.local/share/applications/"
+APPLICATIONS_PATH="$HOME/.local/share/applications/zoomplatform/$GAME_NAME_SAFE"
 log_info "Creating shortcuts..."
 mkdir -p "$INSTALL_PATH/drive_c/zoom_shortcuts/" # temp dir
 sleep 2 # should be enough time for wine to create shortcuts
@@ -542,7 +543,7 @@ Type=Application
 Categories=Game
 X-KDE-RunOnDiscreteGpu=true
 EOL
-            log_info "Creating \"$APPLICATIONS_PATH$_name.desktop\""
+            log_info "Creating \"$APPLICATIONS_PATH/$_name.desktop\""
             desktop-file-install --delete-original --dir="$APPLICATIONS_PATH" "$_zoomdesktopfile"
             ;;
     esac
