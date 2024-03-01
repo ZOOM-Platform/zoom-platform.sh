@@ -501,44 +501,64 @@ while [ $_readlog -eq 1 ]; do
     done
 done < "$INSTALL_PATH/drive_c/zoom_installer.log"
 
+
+CREATE_DESKTOP_ENTRIES=1
 if ! command -v desktop-file-install 2> /dev/null; then
     log_error "desktop-file-install is not available. Skipping desktop entry creation."
-else
-    # Create shortcuts using the shortcuts and icons in C:\proton_shortcuts\
-    # https://github.com/ValveSoftware/wine/commit/0a02c50a20ddc8f4a4c540c43a8b8a686023d422
-    # https://github.com/ValveSoftware/wine/commit/d0109f6ce75e13a4972371d7ef5819d2614c6d61
-    # https://github.com/ValveSoftware/wine/commit/7c040c3c0f837278e2ef3bb55fc9770f61444b36
-    GAME_NAME_SAFE=$(get_header_val 'default_group_name')
-    PROTON_SHORTCUTS_PATH="$INSTALL_PATH/drive_c/proton_shortcuts"
-    APPLICATIONS_PATH="$HOME/.local/share/applications/zoomplatform/$GAME_NAME_SAFE"
-    log_info "Creating shortcuts..."
-    mkdir -p "$INSTALL_PATH/drive_c/zoom_shortcuts/" # temp dir
-    sleep 2 # should be enough time for wine to create shortcuts
-    for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
-        [ ! -f "$file" ] && continue # safety check if .desktop exists
+    CREATE_DESKTOP_ENTRIES=0
+fi
 
-        _filename=$(basename "$file")
-        case $_filename in
-            "Uninstall "*)
-                ;;
-            *)
-                _zoomdesktopfile="$INSTALL_PATH/drive_c/zoom_shortcuts/$_filename"
+# Create shortcuts using the shortcuts and icons in C:\proton_shortcuts\
+# https://github.com/ValveSoftware/wine/commit/0a02c50a20ddc8f4a4c540c43a8b8a686023d422
+# https://github.com/ValveSoftware/wine/commit/d0109f6ce75e13a4972371d7ef5819d2614c6d61
+# https://github.com/ValveSoftware/wine/commit/7c040c3c0f837278e2ef3bb55fc9770f61444b36
+GAME_NAME_SAFE=$(get_header_val 'default_group_name')
+PROTON_SHORTCUTS_PATH="$INSTALL_PATH/drive_c/proton_shortcuts"
+APPLICATIONS_PATH="$HOME/.local/share/applications/zoomplatform/$GAME_NAME_SAFE"
+ZOOM_SHORTCUTS_PATH="$INSTALL_PATH/drive_c/zoom_shortcuts"
+log_info "Creating shortcuts..."
+mkdir -p "$ZOOM_SHORTCUTS_PATH" # temp dir
+sleep 2 # should be enough time for wine to create shortcuts
+for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
+    [ ! -f "$file" ] && continue # safety check if .desktop exists
 
-                # Get some values from the .desktop
-                _name="$(get_desktop_value "Name" "$file")"
-                _lnkpathwin="$(get_desktop_value "Exec" "$file")"
-                _wmclass="$(get_desktop_value "StartupWMClass" "$file")"
-                _iconname="$(get_desktop_value "Icon" "$file")"
+    _filename=$(basename "$file")
+    case $_filename in
+        "Uninstall "*)
+            ;;
+        *)
+            _zoomdesktopfile="$ZOOM_SHORTCUTS_PATH/$_filename"
 
-                # Win -> Linux path
-                # Unescape windows paths
-                _lnkpathlinux=$(PROTON_VERB=getnativepath "$ULWGL_BIN" "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g; s/\\\([^\\]\)/\1/g')" 2> /dev/null)
-                # Get absolute path to largest icon
-                _iconpath="$PROTON_SHORTCUTS_PATH/icons/$(find "$PROTON_SHORTCUTS_PATH/icons" -type f -name "*$_iconname.png" -printf '%P\n' | sort -n -tx -k1 -r | head -n 1)"
+            # Get some values from the .desktop
+            _name="$(get_desktop_value "Name" "$file")"
+            _lnkpathwin="$(get_desktop_value "Exec" "$file")"
+            _wmclass="$(get_desktop_value "StartupWMClass" "$file")"
+            _iconname="$(get_desktop_value "Icon" "$file")"
+
+            # Win -> Linux path
+            # Unescape windows paths
+            _lnkpathlinux=$(PROTON_VERB=getnativepath "$ULWGL_BIN" "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g; s/\\\([^\\]\)/\1/g')" 2> /dev/null)
+            # Get absolute path to largest icon
+            _iconpath="$PROTON_SHORTCUTS_PATH/icons/$(find "$PROTON_SHORTCUTS_PATH/icons" -type f -name "*$_iconname.png" -printf '%P\n' | sort -n -tx -k1 -r | head -n 1)"
+            # Escape linux path for .desktop
+            # shellcheck disable=SC1003
+            _lnkpathlinuxesc=$(printf '%s' "$_lnkpathlinux" | sed 's/\\/\\\\/g; s/ /\\\\ /g; s/(/\\\\(/g; s/)/\\\\)/g; s/'\''/\\\\\'\''/g')
+
+            # Create scripts instead of passing directly into .desktop
+            cat >"$ZOOM_SHORTCUTS_PATH/$_filename.sh" <<EOL
+#!/bin/sh
+export WINEPREFIX="$INSTALL_PATH"
+export GAMEID=ulwgl-$ZOOM_GUID
+"$ULWGL_BIN" "$_lnkpathlinux"
+EOL
+            chmod +x "$ZOOM_SHORTCUTS_PATH/$_filename.sh"
+
+            # Now create .desktop and point to script
+            if [ $CREATE_DESKTOP_ENTRIES -eq 1 ]; then
                 cat >"$_zoomdesktopfile" <<EOL
 [Desktop Entry]
 Name=$_name
-Exec=/bin/sh -c "WINEPREFIX='$INSTALL_PATH' GAMEID='ulwgl-$ZOOM_GUID' '$ULWGL_BIN' '$_lnkpathlinux'"
+Exec=/bin/sh -c "$_lnkpathlinuxesc"
 Icon=$_iconpath
 StartupWMClass=$_wmclass
 Terminal=false
@@ -548,12 +568,14 @@ X-KDE-RunOnDiscreteGpu=true
 EOL
                 log_info "Creating \"$APPLICATIONS_PATH/$_name.desktop\""
                 desktop-file-install --delete-original --dir="$APPLICATIONS_PATH" "$_zoomdesktopfile"
-                ;;
-        esac
-    done
+            fi
+            ;;
+    esac
+done
 
-    # If user chose to create Desktop shortcuts in the installer, symlink to XDG desktop
-    # Shortcut names placed on the Desktop are always the same as what was made in the Start Menu
+# If user chose to create Desktop shortcuts in the installer, symlink to XDG desktop
+# Shortcut names placed on the Desktop are always the same as what was made in the Start Menu
+if [ $CREATE_DESKTOP_ENTRIES -eq 1 ]; then
     for file in "$INSTALL_PATH/drive_c/users/Public/Desktop"/*.lnk; do
         _filename=$(basename "$file" ".lnk")
         _existingdesktoppath="$APPLICATIONS_PATH/$_filename.desktop"
@@ -562,8 +584,11 @@ EOL
             ln -sf "$_existingdesktoppath" "$(xdg-user-dir DESKTOP)/$_filename.desktop"
         fi
     done
+    printf '\n'
+    log_info "Installation complete! You can now launch your games from the applications launcher."
+    log_info "To add to your Steam library, go to \"Games\" -> \"Add a Non-Steam Game to My Library\" then select it from the popup."
+else
+    printf '\n'
+    log_info "Installation complete! Desktop entry creation was skipped, the launch scripts are in \"$ZOOM_SHORTCUTS_PATH\""
 fi
 
-printf '\n'
-log_info "Installation complete! You can now launch your games from the applications launcher."
-log_info "To add to your Steam library, go to \"Games\" -> \"Add a Non-Steam Game to My Library\" then select it from the popup."
