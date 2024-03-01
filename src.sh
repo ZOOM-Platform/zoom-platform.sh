@@ -30,12 +30,12 @@ get_innoext_string() {
     fi
 }
 
-fatal_error_no_exit() {
+log_error() {
     printf "\033[31;1mERROR:\033[0m %s\n" "$*" >&2
 }
 
 fatal_error() {
-    fatal_error_no_exit "$*"
+    log_error "$*"
     exit 1
 }
 
@@ -310,7 +310,7 @@ fi
 # Show usage if can't use dialogs and no paths passed
 if [ $CAN_USE_DIALOGS -eq 0 ]; then
     if [ -z "$INPUT_INSTALLER" ] || [ -z "$INSTALL_PATH" ]; then
-        fatal_error_no_exit "Cannot use dialogs, please specify INSTALLER and DEST."
+        log_error "Cannot use dialogs, please specify INSTALLER and DEST."
         show_usage
         exit 1
     fi
@@ -501,38 +501,41 @@ while [ $_readlog -eq 1 ]; do
     done
 done < "$INSTALL_PATH/drive_c/zoom_installer.log"
 
-# Create shortcuts using the shortcuts and icons in C:\proton_shortcuts\
-# https://github.com/ValveSoftware/wine/commit/0a02c50a20ddc8f4a4c540c43a8b8a686023d422
-# https://github.com/ValveSoftware/wine/commit/d0109f6ce75e13a4972371d7ef5819d2614c6d61
-# https://github.com/ValveSoftware/wine/commit/7c040c3c0f837278e2ef3bb55fc9770f61444b36
-GAME_NAME_SAFE=$(get_header_val 'default_group_name')
-PROTON_SHORTCUTS_PATH="$INSTALL_PATH/drive_c/proton_shortcuts"
-APPLICATIONS_PATH="$HOME/.local/share/applications/zoomplatform/$GAME_NAME_SAFE"
-log_info "Creating shortcuts..."
-mkdir -p "$INSTALL_PATH/drive_c/zoom_shortcuts/" # temp dir
-sleep 2 # should be enough time for wine to create shortcuts
-for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
-    [ ! -f "$file" ] && continue # safety check if .desktop exists
+if ! command -v desktop-file-install 2> /dev/null; then
+    log_error "desktop-file-install is not available. Skipping desktop entry creation."
+else
+    # Create shortcuts using the shortcuts and icons in C:\proton_shortcuts\
+    # https://github.com/ValveSoftware/wine/commit/0a02c50a20ddc8f4a4c540c43a8b8a686023d422
+    # https://github.com/ValveSoftware/wine/commit/d0109f6ce75e13a4972371d7ef5819d2614c6d61
+    # https://github.com/ValveSoftware/wine/commit/7c040c3c0f837278e2ef3bb55fc9770f61444b36
+    GAME_NAME_SAFE=$(get_header_val 'default_group_name')
+    PROTON_SHORTCUTS_PATH="$INSTALL_PATH/drive_c/proton_shortcuts"
+    APPLICATIONS_PATH="$HOME/.local/share/applications/zoomplatform/$GAME_NAME_SAFE"
+    log_info "Creating shortcuts..."
+    mkdir -p "$INSTALL_PATH/drive_c/zoom_shortcuts/" # temp dir
+    sleep 2 # should be enough time for wine to create shortcuts
+    for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
+        [ ! -f "$file" ] && continue # safety check if .desktop exists
 
-    _filename=$(basename "$file")
-    case $_filename in
-        "Uninstall "*)
-            ;;
-        *)
-            _zoomdesktopfile="$INSTALL_PATH/drive_c/zoom_shortcuts/$_filename"
+        _filename=$(basename "$file")
+        case $_filename in
+            "Uninstall "*)
+                ;;
+            *)
+                _zoomdesktopfile="$INSTALL_PATH/drive_c/zoom_shortcuts/$_filename"
 
-            # Get some values from the .desktop
-            _name="$(get_desktop_value "Name" "$file")"
-            _lnkpathwin="$(get_desktop_value "Exec" "$file")"
-            _wmclass="$(get_desktop_value "StartupWMClass" "$file")"
-            _iconname="$(get_desktop_value "Icon" "$file")"
+                # Get some values from the .desktop
+                _name="$(get_desktop_value "Name" "$file")"
+                _lnkpathwin="$(get_desktop_value "Exec" "$file")"
+                _wmclass="$(get_desktop_value "StartupWMClass" "$file")"
+                _iconname="$(get_desktop_value "Icon" "$file")"
 
-            # Win -> Linux path
-            # Unescape windows paths
-            _lnkpathlinux=$(PROTON_VERB=getnativepath "$ULWGL_BIN" "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g; s/\\\([^\\]\)/\1/g')" 2> /dev/null)
-            # Get absolute path to largest icon
-            _iconpath="$PROTON_SHORTCUTS_PATH/icons/$(find "$PROTON_SHORTCUTS_PATH/icons" -type f -name "*$_iconname.png" -printf '%P\n' | sort -n -tx -k1 -r | head -n 1)"
-            cat >"$_zoomdesktopfile" <<EOL
+                # Win -> Linux path
+                # Unescape windows paths
+                _lnkpathlinux=$(PROTON_VERB=getnativepath "$ULWGL_BIN" "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g; s/\\\([^\\]\)/\1/g')" 2> /dev/null)
+                # Get absolute path to largest icon
+                _iconpath="$PROTON_SHORTCUTS_PATH/icons/$(find "$PROTON_SHORTCUTS_PATH/icons" -type f -name "*$_iconname.png" -printf '%P\n' | sort -n -tx -k1 -r | head -n 1)"
+                cat >"$_zoomdesktopfile" <<EOL
 [Desktop Entry]
 Name=$_name
 Exec=/bin/sh -c "WINEPREFIX='$INSTALL_PATH' GAMEID='ulwgl-$ZOOM_GUID' '$ULWGL_BIN' '$_lnkpathlinux'"
@@ -543,22 +546,24 @@ Type=Application
 Categories=Game
 X-KDE-RunOnDiscreteGpu=true
 EOL
-            log_info "Creating \"$APPLICATIONS_PATH/$_name.desktop\""
-            desktop-file-install --delete-original --dir="$APPLICATIONS_PATH" "$_zoomdesktopfile"
-            ;;
-    esac
-done
+                log_info "Creating \"$APPLICATIONS_PATH/$_name.desktop\""
+                desktop-file-install --delete-original --dir="$APPLICATIONS_PATH" "$_zoomdesktopfile"
+                ;;
+        esac
+    done
 
-# If user chose to create Desktop shortcuts in the installer, symlink to XDG desktop
-# Shortcut names placed on the Desktop are always the same as what was made in the Start Menu
-for file in "$INSTALL_PATH/drive_c/users/Public/Desktop"/*.lnk; do
-    _filename=$(basename "$file" ".lnk")
-    _existingdesktoppath="$APPLICATIONS_PATH/$_filename.desktop"
-    if [ -f "$_existingdesktoppath" ] && [ -f "$file" ]; then
-        log_info "Creating \"$(xdg-user-dir DESKTOP)/$_filename.desktop\""
-        ln -sf "$_existingdesktoppath" "$(xdg-user-dir DESKTOP)/$_filename.desktop"
-    fi
-done
+    # If user chose to create Desktop shortcuts in the installer, symlink to XDG desktop
+    # Shortcut names placed on the Desktop are always the same as what was made in the Start Menu
+    for file in "$INSTALL_PATH/drive_c/users/Public/Desktop"/*.lnk; do
+        _filename=$(basename "$file" ".lnk")
+        _existingdesktoppath="$APPLICATIONS_PATH/$_filename.desktop"
+        if [ -f "$_existingdesktoppath" ] && [ -f "$file" ]; then
+            log_info "Creating \"$(xdg-user-dir DESKTOP)/$_filename.desktop\""
+            ln -sf "$_existingdesktoppath" "$(xdg-user-dir DESKTOP)/$_filename.desktop"
+        fi
+    done
+fi
 
+printf '\n'
 log_info "Installation complete! You can now launch your games from the applications launcher."
-log_info "To add to your Steam library, go to \"Games\" -> \"Add a Non-Steam Game to My Library\" and select it from the popup."
+log_info "To add to your Steam library, go to \"Games\" -> \"Add a Non-Steam Game to My Library\" then select it from the popup."
