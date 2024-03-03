@@ -1,6 +1,6 @@
 #!/bin/sh
 
 cd ../
-./dist.sh
+sh dist.sh
 
 cp zoom-platform.sh www/zoom-platform.sh
