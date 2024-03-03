@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>zoom-platform.sh</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="zoom-platform.sh" />
+  <link rel="icon" href="/favicon.png">
+  <style>
+    /* Box sizing rules */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    /* Prevent font size inflation */
+    html {
+      -moz-text-size-adjust: none;
+      -webkit-text-size-adjust: none;
+      text-size-adjust: none;
+    }
+
+    /* Remove default margin in favour of better control in authored CSS */
+    body, h1, h2, h3, h4, p,
+    figure, blockquote, dl, dd {
+      margin-block-end: 0;
+    }
+
+    /* Inherit fonts for inputs and buttons */
+    input, button,
+    textarea, select {
+      font: inherit;
+    }
+  </style>
+  <style>
+    :root {
+      --font-family: '3270 Condensed', monospace;
+    }
+    @font-face {
+      font-family: '3270 Condensed';
+      font-style: normal;
+      font-display: block;
+      src: url('/font/3270Condensed-Regular.woff') format('woff');
+    }
+    body {
+      width: 100%;
+      height: 100%;
+      background-color: #11101d;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+      line-height: 1.5;
+    }
+    .container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      width: 100vw;
+    }
+    .command-wrap {
+      display: flex;
+      background: #0c0b13;
+      padding: 1em;
+      border-radius: .75em;
+    }
+    pre {
+      font-family: var(--font-family);
+      font-size: 2em;
+      padding: 0;
+      margin: 0;
+      margin-right: 2ch;
+    }
+    pre::before {
+      content: '$ ';
+      color: #545454;
+    }
+    code {
+      font-family: var(--font-family);
+    }
+    .highlight-binary {
+      color: #C0CAF5;
+    }
+    .highlight-arg {
+      color: #8781fd;
+      text-shadow: 0 0 5px rgb(101, 93, 252), 0 0 25px rgba(120, 113, 255, 0.8);
+      animation: glow 8s infinite linear;
+    }
+    .highlight-pipe {
+      color: #89DDFF;
+    }
+    #copy-to-clip {
+      all: unset;
+      display: flex;
+      align-items: center;
+      padding: 0 1em;
+      cursor: pointer;
+      border-radius: .45em;
+      color: rgb(185, 185, 185);
+      background-color: #11101d;
+      transition: background-color ease 100ms;
+    }
+    #copy-to-clip:hover {
+      background-color: #141222;
+    }
+    #copy-to-clip:active {
+      background-color: #1b1a2c;
+    }
+    #copy-to-clip path.copy-success,
+    #copy-to-clip path.copy-error {
+      opacity: 0;
+      transition: opacity ease 150ms;
+    }
+    #copy-to-clip path.shown {
+      opacity: 1;
+    }
+    @keyframes glow {
+      0%, 100% {
+        text-shadow: 0 0 5px rgb(101, 93, 252), 0 0 35px rgb(120, 113, 255);
+      }
+
+      33.3333333333% {
+        text-shadow: 0 0 5px rgb(101, 93, 252), 0 0 25px rgb(156, 113, 255)
+      }
+
+      66.6666666666% {
+        text-shadow: 0 0 5px rgb(101, 93, 252), 0 0 30px rgb(110, 185, 235)
+      }
+    }
+  </style>
+  <script>
+    let timeout;
+    const copyCmd = async (btn) => {
+      try {
+        await navigator.clipboard.writeText('curl zoom-platform.sh | sh');
+        btn.querySelector('.copy-success').classList.add('shown');
+        btn.querySelector('.copy-error').classList.remove('shown');
+        if (timeout) clearTimeout(timeout);
+        timeout = setTimeout(() => {
+          btn.querySelector('.copy-success').classList.remove('shown');
+        }, 2000);
+      } catch (err) {
+        console.error(err);
+        btn.querySelector('.copy-success').classList.remove('shown');
+        btn.querySelector('.copy-error').classList.add('shown');
+      }
+    }
+  </script>
+</head>
+<body>
+  <div class="container">
+    <div class="command-wrap">
+      <pre><code><span class="highlight-binary">curl </span><span class="highlight-arg">zoom-platform.sh</span><span class="highlight-pipe"> | </span><span class="highlight-binary">sh</span></code></pre>
+      <button id="copy-to-clip" onclick="copyCmd(this)">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" viewBox="0 0 24 24" data-attribution="https://cc0-icons.jonh.eu/">
+          <path d="M8 3.5V4a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-.5m-8 0V3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v.5m-8 0h-.778A2.229 2.229 0 0 0 5 5.73v14.048C5 21.005 5.995 22 7.222 22h9.556A2.222 2.222 0 0 0 19 19.778V5.73a2.23 2.23 0 0 0-2.222-2.23H16"/>
+          <path d="m15 11.5-3.938 4.615L9 13.808" class="copy-success" />
+          <path d="M12 15.5v-5m0 8h.01M14" class="copy-error" />
+        </svg>
+      </button>
+    </div>
+  </div>
+</body>
+</html>
