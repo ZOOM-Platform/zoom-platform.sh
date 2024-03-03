@@ -1,8 +1,9 @@
 # zoom-platform.sh website
+no frameworks, no fancy bundlers, just a towering html monolith
 
-## Building
+## Deploying
 1. Clone this repo
-2. `cd www && build.sh`
+2. `cd www && build.sh` (All this does is download the latest release .sh and copy everything to `out`)
 3. Serve `www/out/`
 
 We can't use GitHub/CF Pages cause they force SSL. Server is running Nginx with a simple config:
@@ -32,4 +33,4 @@ Cloudflare is set up to:
   ```
 - Automatic HTTPS Rewrites, integrity checks, challenges, etc are all disabled for non-browser UAs.
 
-~~all this cause i don't an `-L` in the command~~
+~~all this cause i don't want an `-L` in the command~~
