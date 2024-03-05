@@ -21,7 +21,7 @@ USE_ZENITY=1
 if [ $CAN_USE_DIALOGS -eq 1 ] && ! zenity --version >/dev/null 2>&1; then USE_ZENITY=0; fi
 
 # .shellcheck will consume ram trying to parse INNOEXTRACT_BINARY_B64
-# when working developing, just load the bin from working dir
+# when developing, just load the bin from working dir
 get_innoext_string() {
     if [ $INSTALLER_VERSION = "DEV" ]; then
         printf '%s' "$(base64 -w 0 innoextract)"
@@ -67,6 +67,27 @@ validate_uuid() {
 
 trim_string() {
     awk '{$1=$1;print}'
+}
+
+get_ulwgl_id() {
+    _guid="$1"
+    _api_resp=$(curl -Ls -H "User-Agent: zoom-platform.sh/$INSTALLER_VERSION (+https://zoom-platform.sh/)" \
+                    "https://ulwgl.openwinecomponents.org/ulwgl_api.php?store=zoomplatform&codename=$_guid")
+    _api_exit=$?
+    if [ $_api_exit -eq 0 ]; then
+        _parsed_str="$(printf '%s' "$_api_resp" | awk -F'"ulwgl_id":"' '{print substr($2, 1, index($2, "\"")-1)}')"
+        # Validate parsed output
+        case $_parsed_str in
+            "ulwgl-"*)
+                printf '%s' "$_parsed_str"
+                exit 0
+                ;;
+            *)
+                exit 1
+                ;;
+        esac
+    fi
+    exit 1
 }
 
 get_desktop_value() {
@@ -501,6 +522,11 @@ while [ $_readlog -eq 1 ]; do
     done
 done < "$INSTALL_PATH/drive_c/zoom_installer.log"
 
+# Query API for ULWGL ID
+ULWGL_ID="$(get_ulwgl_id "$ZOOM_GUID")"
+ULWGL_ID_EXIT=$?
+if [ $ULWGL_ID_EXIT -gt 0 ]; then ULWGL_ID="0"; fi
+
 
 CREATE_DESKTOP_ENTRIES=1
 if ! command -v desktop-file-install > /dev/null; then
@@ -549,7 +575,8 @@ for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
             cat >"$ZOOM_SHORTCUTS_PATH/$_filename.sh" <<EOL
 #!/bin/sh
 export WINEPREFIX="$INSTALL_PATH"
-export GAMEID=ulwgl-$ZOOM_GUID
+export GAMEID=$ULWGL_ID
+export STORE=zoomplatform
 "$ULWGL_BIN" "$_lnkpathlinux"
 EOL
             chmod +x "$ZOOM_SHORTCUTS_PATH/$_filename.sh"
