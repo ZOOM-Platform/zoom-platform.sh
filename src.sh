@@ -12,7 +12,7 @@ INNOEXTRACT_BINARY_B64=0
 INSTALLER_VERSION="DEV"
 REPO_PATH="https://github.com/ZOOM-Platform/zoom-platform.sh"
 INNOEXT_BIN="/tmp/innoextract_zoom"
-ULWGL_BIN=ulwgl-run
+UMU_BIN=umu-run
 
 CAN_USE_DIALOGS=0
 USE_ZENITY=1
@@ -69,16 +69,16 @@ trim_string() {
     awk '{$1=$1;print}'
 }
 
-get_ulwgl_id() {
+get_umu_id() {
     _guid="$1"
     _api_resp=$(curl -Ls -H "User-Agent: zoom-platform.sh/$INSTALLER_VERSION (+https://zoom-platform.sh/)" \
-                    "https://ulwgl.openwinecomponents.org/ulwgl_api.php?store=zoomplatform&codename=$_guid")
+                    "https://umu.openwinecomponents.org/umu_api.php?store=zoomplatform&codename=$_guid")
     _api_exit=$?
     if [ $_api_exit -eq 0 ]; then
-        _parsed_str="$(printf '%s' "$_api_resp" | awk -F'"ulwgl_id":"' '{print substr($2, 1, index($2, "\"")-1)}')"
+        _parsed_str="$(printf '%s' "$_api_resp" | awk -F'"umu_id":"' '{print substr($2, 1, index($2, "\"")-1)}')"
         # Validate parsed output
         case $_parsed_str in
-            "ulwgl-"*)
+            "umu-"*)
                 printf '%s' "$_parsed_str"
                 exit 0
                 ;;
@@ -211,7 +211,7 @@ prefix_has_any_game() {
     # normally there should only be one game installed, but multiple is valid if dlc is installed
     while read -r line; do
         # Validate the paths, stop on first success
-        if [ -d "$(PROTON_VERB=getnativepath "$ULWGL_BIN" "$line")" ]; then
+        if [ -d "$(PROTON_VERB=getnativepath "$UMU_BIN" "$line")" ]; then
             _r=0
             break
         fi
@@ -224,7 +224,7 @@ show_usage() {
     printf 'Usage: zoom-platform.sh [OPTIONS] INSTALLER DEST
 
 Description:
-  zoom-platform.sh - Install Windows games from ZOOM Platform using ULWGL and Proton.
+  zoom-platform.sh - Install Windows games from ZOOM Platform using UMU and Proton.
 
 Options:
   -h, --help           Display this help message and exit.
@@ -303,16 +303,16 @@ else
     fatal_error "Could not decode base64."
 fi
 
-# Check if ULWGL is installed
+# Check if UWU is installed
 # TODO: Flatpak
-if command -v ulwgl-run > /dev/null; then
-    ULWGL_BIN=ulwgl-run
-elif [ -f "$HOME/.local/share/ULWGL/ulwgl-run" ]; then
-    ULWGL_BIN="$HOME/.local/share/ULWGL/ulwgl-run"
-elif [ -f "/usr/bin/ulwgl-run" ]; then
-    ULWGL_BIN="/usr/bin/ulwgl-run"
+if command -v umu-run > /dev/null; then
+    UMU_BIN=umu-run
+elif [ -f "$HOME/.local/share/umu/umu-run" ]; then
+    UMU_BIN="$HOME/.local/share/umu/umu-run"
+elif [ -f "/usr/bin/umu-run" ]; then
+    UMU_BIN="/usr/bin/umu-run"
 else
-    fatal_error "ULWGL is not installed"
+    fatal_error "UMU is not installed"
 fi
 
 # If dialogs are usable and installer wasn't specified, show a dialog
@@ -458,7 +458,7 @@ if %errorlevel% neq 0 (
 EOL
 
     log_info "Creating installer reg keys..."
-    "$ULWGL_BIN" start "C:\\zoom_regkeys.bat"
+    "$UMU_BIN" start "C:\\zoom_regkeys.bat"
 fi
 
 printf '\n' > "$INSTALL_PATH/drive_c/zoom_installer.log"
@@ -472,7 +472,7 @@ VERYSILENT=0
 # Only important stuff like the EULA and configurable items should show.
 # "/ZOOMINSTALLERGUID=" is only used so we can easily find the process with pkill -f
 log_info "Launching installer..."
-"$ULWGL_BIN" "$INPUT_INSTALLER" \
+"$UMU_BIN" "$INPUT_INSTALLER" \
     /NORESTART \
     /SP- \
     /LOADINF=C:\\zoom_installer.inf \
@@ -522,10 +522,10 @@ while [ $_readlog -eq 1 ]; do
     done
 done < "$INSTALL_PATH/drive_c/zoom_installer.log"
 
-# Query API for ULWGL ID
-ULWGL_ID="$(get_ulwgl_id "$ZOOM_GUID")"
-ULWGL_ID_EXIT=$?
-if [ $ULWGL_ID_EXIT -gt 0 ]; then ULWGL_ID="0"; fi
+# Query API for UMU ID
+UMU_ID="$(get_umu_id "$ZOOM_GUID")"
+UMU_ID_EXIT=$?
+if [ $UMU_ID_EXIT -gt 0 ]; then UMU_ID="0"; fi
 
 
 CREATE_DESKTOP_ENTRIES=1
@@ -563,7 +563,7 @@ for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
 
             # Win -> Linux path
             # Unescape windows paths
-            _lnkpathlinux=$(PROTON_VERB=getnativepath "$ULWGL_BIN" "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g; s/\\\([^\\]\)/\1/g')" 2> /dev/null)
+            _lnkpathlinux=$(PROTON_VERB=getnativepath "$UMU_BIN" "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g; s/\\\([^\\]\)/\1/g')" 2> /dev/null)
             # Get absolute path to largest icon
             _iconpath="$PROTON_SHORTCUTS_PATH/icons/$(find "$PROTON_SHORTCUTS_PATH/icons" -type f -name "*$_iconname.png" -printf '%P\n' | sort -n -tx -k1 -r | head -n 1)"
 
@@ -575,9 +575,9 @@ for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
             cat >"$ZOOM_SHORTCUTS_PATH/$_filename.sh" <<EOL
 #!/bin/sh
 export WINEPREFIX="$INSTALL_PATH"
-export GAMEID=$ULWGL_ID
+export GAMEID=$UMU_ID
 export STORE=zoomplatform
-"$ULWGL_BIN" "$_lnkpathlinux"
+"$UMU_BIN" "$_lnkpathlinux"
 EOL
             chmod +x "$ZOOM_SHORTCUTS_PATH/$_filename.sh"
 
