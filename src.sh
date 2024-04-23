@@ -15,11 +15,11 @@ INNOEXT_BIN="/tmp/innoextract_zoom"
 LAUNCH_SCRIPTS_PATH="$HOME"/.local/share/zoom-platform
 UMU_BIN=umu-run
 
+# Check if dialogs can be used and set tool, prioritize KDialog cause it has a better UX
 CAN_USE_DIALOGS=0
-USE_ZENITY=0 # set this to 1 to prefer Zenity over KDialog
-(kdialog --version >/dev/null 2>&1 | grep -q '' || zenity --version >/dev/null 2>&1) && [ -n "$DISPLAY" ] && CAN_USE_DIALOGS=1
-
-if [ $CAN_USE_DIALOGS -eq 1 ] && ! zenity --version >/dev/null 2>&1; then USE_ZENITY=0; fi
+USE_ZENITY=0
+(command -v kdialog >/dev/null || command -v zenity >/dev/null) && [ -n "$DISPLAY" ] && CAN_USE_DIALOGS=1
+if [ $CAN_USE_DIALOGS -eq 1 ] && ! command -v kdialog >/dev/null; then USE_ZENITY=1; fi
 
 # .shellcheck will consume ram trying to parse INNOEXTRACT_BINARY_B64
 # when developing, just load the bin from working dir
