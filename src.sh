@@ -136,18 +136,22 @@ dialog_infobox() {
 }
 
 # Generate command to launch UMU with
-# shellcheck disable=SC2120
 umu_launch_command() {
     if [ "$UMU_BIN" = "FLATPAK" ]; then
-        printf 'flatpak run --env=GAMEID="%s" --env=WINEPREFIX="%s" --env=PROTON_VERB="%s" org.openwinecomponents.umu.umu-launcher' "$GAMEID" "$WINEPREFIX" "$PROTON_VERB"
+        # shellcheck disable=SC2016
+        printf '%s' 'flatpak run --env=GAMEID="$GAMEID" --env=WINEPREFIX="$WINEPREFIX" --env=STORE="$STORE" org.openwinecomponents.umu.umu-launcher'
     else
         printf '%s' "$UMU_BIN"
     fi
-    printf ' %s' "$@"
 }
 
 umu_launch() {
-    eval 'umu_launch_command "$@"' | sh
+    if [ "$UMU_BIN" = "FLATPAK" ]; then
+        if [ -z "$PROTON_VERB" ]; then PROTON_VERB=waitforexitandrun; fi
+        flatpak run --env=GAMEID="$GAMEID" --env=WINEPREFIX="$WINEPREFIX" --env=PROTON_VERB="$PROTON_VERB" org.openwinecomponents.umu.umu-launcher "$@"
+    else
+        "$UMU_BIN" "$@"
+    fi
 }
 
 # Loose check if dir is a wine prefix
@@ -327,7 +331,7 @@ elif command -v "$HOME"/.local/share/umu/umu-run > /dev/null; then
 elif command -v /usr/bin/umu-run > /dev/null; then
     UMU_BIN=/usr/bin/umu-run
 elif flatpak info org.openwinecomponents.umu.umu-launcher >/dev/null 2>&1; then
-    UMU_BIN="org.openwinecomponents.umu.umu-launcher"
+    UMU_BIN="FLATPAK"
 else
     fatal_error "UMU is not installed"
 fi
