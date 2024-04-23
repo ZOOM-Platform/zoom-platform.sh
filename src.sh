@@ -16,8 +16,8 @@ LAUNCH_SCRIPTS_PATH="$HOME"/.local/share/zoom-platform
 UMU_BIN=umu-run
 
 CAN_USE_DIALOGS=0
-USE_ZENITY=1
-(kdialog --version >/dev/null 2>&1 || zenity --version >/dev/null 2>&1) && [ -n "$DISPLAY" ] && CAN_USE_DIALOGS=1
+USE_ZENITY=0 # set this to 1 to prefer Zenity over KDialog
+(kdialog --version >/dev/null 2>&1 | grep -q '' || zenity --version >/dev/null 2>&1) && [ -n "$DISPLAY" ] && CAN_USE_DIALOGS=1
 
 if [ $CAN_USE_DIALOGS -eq 1 ] && ! zenity --version >/dev/null 2>&1; then USE_ZENITY=0; fi
 
@@ -108,7 +108,7 @@ dialog_installer_select() {
         zenity --file-selection --title="Select a ZOOM Platform installer"
         return $?
     else
-        kdialog --getopenfilename . "ZOOM Platform installer (*.exe)" --title "Select a ZOOM Platform installer"
+        kdialog --getopenfilename . "ZOOM Platform Windows installer (*.exe)" --title "Select a ZOOM Platform installer"
         return $?
     fi
 }
@@ -133,6 +133,21 @@ dialog_infobox() {
         kdialog --msgbox "$_msg" --title "$_title"
         return $?
     fi
+}
+
+# Generate command to launch UMU with
+# shellcheck disable=SC2120
+umu_launch_command() {
+    if [ "$UMU_BIN" = "FLATPAK" ]; then
+        printf 'flatpak run --env=GAMEID="%s" --env=WINEPREFIX="%s" --env=PROTON_VERB="%s" org.openwinecomponents.umu.umu-launcher' "$GAMEID" "$WINEPREFIX" "$PROTON_VERB"
+    else
+        printf '%s' "$UMU_BIN"
+    fi
+    printf ' %s' "$@"
+}
+
+umu_launch() {
+    eval 'umu_launch_command "$@"' | sh
 }
 
 # Loose check if dir is a wine prefix
@@ -212,7 +227,7 @@ prefix_has_any_game() {
     # normally there should only be one game installed, but multiple is valid if dlc is installed
     while read -r line; do
         # Validate the paths, stop on first success
-        if [ -d "$(PROTON_VERB=getnativepath "$UMU_BIN" "$line")" ]; then
+        if [ -d "$(PROTON_VERB=getnativepath umu_launch "$line")" ]; then
             _r=0
             break
         fi
@@ -305,13 +320,14 @@ else
 fi
 
 # Check if UWU is installed
-# TODO: Flatpak
 if command -v umu-run > /dev/null; then
     UMU_BIN=umu-run
-elif [ -f "$HOME/.local/share/umu/umu-run" ]; then
-    UMU_BIN="$HOME/.local/share/umu/umu-run"
-elif [ -f "/usr/bin/umu-run" ]; then
-    UMU_BIN="/usr/bin/umu-run"
+elif command -v "$HOME"/.local/share/umu/umu-run > /dev/null; then
+    UMU_BIN="$HOME"/.local/share/umu/umu-run
+elif command -v /usr/bin/umu-run > /dev/null; then
+    UMU_BIN=/usr/bin/umu-run
+elif flatpak info org.openwinecomponents.umu.umu-launcher >/dev/null 2>&1; then
+    UMU_BIN="org.openwinecomponents.umu.umu-launcher"
 else
     fatal_error "UMU is not installed"
 fi
@@ -345,7 +361,7 @@ ZOOM_GUID_EXIT=$?
 if [ $ZOOM_GUID_EXIT -gt 0 ] || ! validate_uuid "$ZOOM_GUID"; then
     fatal_error "This doesn't seem to be a ZOOM Platform installer.
 If you think this is an error, please submit a bug report:
-$REPO_PATH"
+$REPO_PATH/issues"
 fi
 
 INSTALLER_INFO=$($INNOEXT_BIN -s --print-headers "$INPUT_INSTALLER")
@@ -459,7 +475,7 @@ if %errorlevel% neq 0 (
 EOL
 
     log_info "Creating installer reg keys..."
-    "$UMU_BIN" start "C:\\zoom_regkeys.bat"
+    umu_launch start "C:\\zoom_regkeys.bat"
 fi
 
 printf '\n' > "$INSTALL_PATH/drive_c/zoom_installer.log"
@@ -473,7 +489,7 @@ VERYSILENT=0
 # Only important stuff like the EULA and configurable items should show.
 # "/ZOOMINSTALLERGUID=" is only used so we can easily find the process with pkill -f
 log_info "Launching installer..."
-"$UMU_BIN" "$INPUT_INSTALLER" \
+umu_launch "$INPUT_INSTALLER" \
     /NORESTART \
     /SP- \
     /LOADINF=C:\\zoom_installer.inf \
@@ -562,7 +578,7 @@ for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
 
             # Win -> Linux path
             # Unescape windows paths
-            _lnkpathlinux=$(PROTON_VERB=getnativepath "$UMU_BIN" "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g; s/\\\([^\\]\)/\1/g')" 2> /dev/null)
+            _lnkpathlinux=$(PROTON_VERB=getnativepath umu_launch "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g; s/\\\([^\\]\)/\1/g')" 2> /dev/null)
             # Get absolute path to largest icon
             _iconpath="$PROTON_SHORTCUTS_PATH/icons/$(find "$PROTON_SHORTCUTS_PATH/icons" -type f -name "*$_iconname.png" -printf '%P\n' | sort -n -tx -k1 -r | head -n 1)"
 
@@ -571,7 +587,7 @@ for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
 export GAMEID="$UMU_ID"
 export WINEPREFIX="$INSTALL_PATH"
 export STORE="zoomplatform"
-"$UMU_BIN" "$_lnkpathlinux"
+"$(umu_launch_command)" "$_lnkpathlinux"
 EOL
             chmod +x "$ZOOM_SHORTCUTS_PATH/$_filename.sh"
 
