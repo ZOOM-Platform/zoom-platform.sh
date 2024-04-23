@@ -620,6 +620,7 @@ X-KDE-RunOnDiscreteGpu=true
 EOL
                 log_info "Creating \"$APPLICATIONS_PATH/$_name.desktop\""
                 desktop-file-install --delete-original --dir="$APPLICATIONS_PATH" "$_zoomdesktopfile"
+                chmod +x "$APPLICATIONS_PATH/$_name.desktop"
             fi
             ;;
     esac
