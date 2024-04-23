@@ -570,44 +570,56 @@ for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
     [ ! -f "$file" ] && continue # safety check if .desktop exists
 
     _filename=$(basename "$file" ".desktop")
-    case $_filename in
-        "Uninstall "* | "Manual" | *"Manual ("*)
+    # Get some values from the .desktop
+    _name="$(get_desktop_value "Name" "$file")"
+    _lnkpathwin="$(get_desktop_value "Exec" "$file")"
+    _wmclass="$(get_desktop_value "StartupWMClass" "$file")"
+    _iconname="$(get_desktop_value "Icon" "$file")"
+
+    # Skip certain shortcuts
+    case $_wmclass in
+        # Skip uninstaller and PDFs
+        "unins000.exe" | *".pdf")
+            continue
             ;;
-        *)
-            # Get some values from the .desktop
-            _name="$(get_desktop_value "Name" "$file")"
-            _lnkpathwin="$(get_desktop_value "Exec" "$file")"
-            _wmclass="$(get_desktop_value "StartupWMClass" "$file")"
-            _iconname="$(get_desktop_value "Icon" "$file")"
+        # Skip HTML manuals
+        *".html" | *".htm")
+            case $_name in
+                *"Manual"*)
+                    continue
+                    ;;
+            esac
+            ;;
+    esac
 
-            # Win -> Linux path
-            # Unescape windows paths
-            _lnkpathlinux=$(PROTON_VERB=getnativepath umu_launch "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g; s/\\\([^\\]\)/\1/g')" 2> /dev/null)
-            # Get absolute path to largest icon
-            _iconpath="$PROTON_SHORTCUTS_PATH/icons/$(find "$PROTON_SHORTCUTS_PATH/icons" -type f -name "*$_iconname.png" -printf '%P\n' | sort -n -tx -k1 -r | head -n 1)"
+    # Win -> Linux path
+    # Unescape windows paths
+    _lnkpathlinux=$(PROTON_VERB=getnativepath umu_launch "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g; s/\\\([^\\]\)/\1/g')" 2> /dev/null)
+    # Get absolute path to largest icon
+    _iconpath="$PROTON_SHORTCUTS_PATH/icons/$(find "$PROTON_SHORTCUTS_PATH/icons" -type f -name "*$_iconname.png" -printf '%P\n' | sort -n -tx -k1 -r | head -n 1)"
 
-            cat >"$ZOOM_SHORTCUTS_PATH/$_filename.sh" <<EOL
+    cat >"$ZOOM_SHORTCUTS_PATH/$_filename.sh" <<EOL
 #!/bin/sh
 export GAMEID="$UMU_ID"
 export WINEPREFIX="$INSTALL_PATH"
 export STORE="zoomplatform"
 "$(umu_launch_command)" "$_lnkpathlinux"
 EOL
-            chmod +x "$ZOOM_SHORTCUTS_PATH/$_filename.sh"
+    chmod +x "$ZOOM_SHORTCUTS_PATH/$_filename.sh"
 
-            # Desktop entries do not play well with special characters, and each distro handles them
-            # different enough to be annoyingly problematic.
-            # So we create a script in a location with no special characters (hopefully) that launches UMU.
-            if [ $CREATE_DESKTOP_ENTRIES -eq 1 ]; then
-                _zoomdesktopfile="$ZOOM_SHORTCUTS_PATH/$_filename.desktop"
-                _fsum=$(printf '%s' "$_filename" | cksum | cut -d ' ' -f1)
+    # Desktop entries do not play well with special characters, and each distro handles them
+    # different enough to be annoyingly problematic.
+    # So we create a script in a location with no special characters (hopefully) that launches UMU.
+    if [ $CREATE_DESKTOP_ENTRIES -eq 1 ]; then
+        _zoomdesktopfile="$ZOOM_SHORTCUTS_PATH/$_filename.desktop"
+        _fsum=$(printf '%s' "$_filename" | cksum | cut -d ' ' -f1)
 
-                # Place script in $XDG_DATA_HOME/zoom-platform/
-                mkdir -p "$LAUNCH_SCRIPTS_PATH/$ZOOM_GUID/"
-                ln -sf "$ZOOM_SHORTCUTS_PATH/$_filename.sh" "$LAUNCH_SCRIPTS_PATH/$ZOOM_GUID/$_fsum.sh"
+        # Place script in $XDG_DATA_HOME/zoom-platform/
+        mkdir -p "$LAUNCH_SCRIPTS_PATH/$ZOOM_GUID/"
+        ln -sf "$ZOOM_SHORTCUTS_PATH/$_filename.sh" "$LAUNCH_SCRIPTS_PATH/$ZOOM_GUID/$_fsum.sh"
 
-                # Now create .desktop and point to script
-                cat >"$_zoomdesktopfile" <<EOL
+        # Now create .desktop and point to script
+        cat >"$_zoomdesktopfile" <<EOL
 [Desktop Entry]
 Name=$_name
 Exec=$LAUNCH_SCRIPTS_PATH/$ZOOM_GUID/$_fsum.sh
@@ -618,12 +630,10 @@ Type=Application
 Categories=Game
 X-KDE-RunOnDiscreteGpu=true
 EOL
-                log_info "Creating \"$APPLICATIONS_PATH/$_name.desktop\""
-                desktop-file-install --delete-original --dir="$APPLICATIONS_PATH" "$_zoomdesktopfile"
-                chmod +x "$APPLICATIONS_PATH/$_name.desktop"
-            fi
-            ;;
-    esac
+        log_info "Creating \"$APPLICATIONS_PATH/$_name.desktop\""
+        desktop-file-install --delete-original --dir="$APPLICATIONS_PATH" "$_zoomdesktopfile"
+        chmod +x "$APPLICATIONS_PATH/$_name.desktop"
+    fi
 done
 
 # If user chose to create Desktop shortcuts in the installer, symlink to XDG desktop
