@@ -12,6 +12,7 @@ INNOEXTRACT_BINARY_B64=0
 INSTALLER_VERSION="DEV"
 REPO_PATH="https://github.com/ZOOM-Platform/zoom-platform.sh"
 INNOEXT_BIN="/tmp/innoextract_zoom"
+LAUNCH_SCRIPTS_PATH="$HOME"/.local/share/zoom-platform
 UMU_BIN=umu-run
 
 CAN_USE_DIALOGS=0
@@ -540,21 +541,19 @@ fi
 # https://github.com/ValveSoftware/wine/commit/7c040c3c0f837278e2ef3bb55fc9770f61444b36
 GAME_NAME_SAFE=$(get_header_val 'default_group_name')
 PROTON_SHORTCUTS_PATH="$INSTALL_PATH/drive_c/proton_shortcuts"
-APPLICATIONS_PATH="$HOME/.local/share/applications/zoomplatform/$GAME_NAME_SAFE"
+APPLICATIONS_PATH="$HOME/.local/share/applications/zoom-platform/$GAME_NAME_SAFE"
 ZOOM_SHORTCUTS_PATH="$INSTALL_PATH/drive_c/zoom_shortcuts"
 log_info "Creating shortcuts..."
-mkdir -p "$ZOOM_SHORTCUTS_PATH" # temp dir
+mkdir -p "$ZOOM_SHORTCUTS_PATH"
 sleep 2 # should be enough time for wine to create shortcuts
 for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
     [ ! -f "$file" ] && continue # safety check if .desktop exists
 
     _filename=$(basename "$file" ".desktop")
     case $_filename in
-        "Uninstall "*)
+        "Uninstall "* | "Manual" | *"Manual ("*)
             ;;
         *)
-            _zoomdesktopfile="$ZOOM_SHORTCUTS_PATH/$_filename.desktop"
-
             # Get some values from the .desktop
             _name="$(get_desktop_value "Name" "$file")"
             _lnkpathwin="$(get_desktop_value "Exec" "$file")"
@@ -567,26 +566,31 @@ for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
             # Get absolute path to largest icon
             _iconpath="$PROTON_SHORTCUTS_PATH/icons/$(find "$PROTON_SHORTCUTS_PATH/icons" -type f -name "*$_iconname.png" -printf '%P\n' | sort -n -tx -k1 -r | head -n 1)"
 
-            # Escape script path for .desktop
-            # shellcheck disable=SC1003
-            _shpathlinuxesc=$(printf '%s' "$ZOOM_SHORTCUTS_PATH/$_filename.sh" | sed 's/\\/\\\\/g; s/ /\\\\ /g; s/(/\\\\(/g; s/)/\\\\)/g; s/'\''/\\\\\'\''/g')
-
-            # Create scripts instead of passing directly into .desktop
             cat >"$ZOOM_SHORTCUTS_PATH/$_filename.sh" <<EOL
 #!/bin/sh
+export GAMEID="$UMU_ID"
 export WINEPREFIX="$INSTALL_PATH"
-export GAMEID=$UMU_ID
-export STORE=zoomplatform
+export STORE="zoomplatform"
 "$UMU_BIN" "$_lnkpathlinux"
 EOL
             chmod +x "$ZOOM_SHORTCUTS_PATH/$_filename.sh"
 
-            # Now create .desktop and point to script
+            # Desktop entries do not play well with special characters, and each distro handles them
+            # different enough to be annoyingly problematic.
+            # So we create a script in a location with no special characters (hopefully) that launches UMU.
             if [ $CREATE_DESKTOP_ENTRIES -eq 1 ]; then
+                _zoomdesktopfile="$ZOOM_SHORTCUTS_PATH/$_filename.desktop"
+                _fsum=$(printf '%s' "$_filename" | cksum | cut -d ' ' -f1)
+
+                # Place script in $XDG_DATA_HOME/zoom-platform/
+                mkdir -p "$LAUNCH_SCRIPTS_PATH/$ZOOM_GUID/"
+                ln -sf "$ZOOM_SHORTCUTS_PATH/$_filename.sh" "$LAUNCH_SCRIPTS_PATH/$ZOOM_GUID/$_fsum.sh"
+
+                # Now create .desktop and point to script
                 cat >"$_zoomdesktopfile" <<EOL
 [Desktop Entry]
 Name=$_name
-Exec=/bin/sh -c \\\\"$_shpathlinuxesc\\\\"
+Exec=$LAUNCH_SCRIPTS_PATH/$ZOOM_GUID/$_fsum.sh
 Icon=$_iconpath
 StartupWMClass=$_wmclass
 Terminal=false
