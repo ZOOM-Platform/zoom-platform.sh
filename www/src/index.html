@@ -7,8 +7,8 @@
   <link rel="shortcut icon" href="/favicon.svg" type="image/svg" />
   <meta name="theme-color" content="#8781fd">
   <meta name="color-scheme" content="dark" />
-  <meta name="description" content="Install and play Windows ZOOM Platform games on Linux using Proton and ULWGL" />
-  <meta property="og:description" content="Install and play Windows ZOOM Platform games on Linux using Proton and ULWGL" />
+  <meta name="description" content="Install and play Windows ZOOM Platform games on Linux using Proton and UMU" />
+  <meta property="og:description" content="Install and play Windows ZOOM Platform games on Linux using Proton and UMU" />
   <meta property="og:title" content="zoom-platform.sh" />
   <meta property="og:url" content="https://zoom-platform.sh/" />
   <meta property="og:site_name" content="zoom-platform.sh" />
@@ -99,10 +99,10 @@
       font-size: 1em;
       margin: 2em 0;
       color: var(--color-primary);
-      height: 0em;
       display: block;
+      text-align: center;
     }
-    #footer {
+    footer {
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -116,10 +116,10 @@
         bottom: 0;
       }
     }
-    #footer a {
+    footer a {
       text-decoration: none;
     }
-    #footer svg {
+    footer svg {
       vertical-align: -.25em;
       margin-right: .25em;
     }
@@ -139,11 +139,16 @@
       background-image: linear-gradient(90deg, transparent 0%, rgba(120, 113, 255, .3) 5%, transparent 10%);
       background-size: 200%;
       background-position: 20%;
+      border: 2px solid;
+      border-color: #2c294e;
     }
     .download-btn {
       text-align: right;
       font-size: .7em;
       margin: .25em .5em;
+    }
+    .download-btn > a {
+      text-decoration: none;
     }
     .command-box.gradient {
       background-position: -100%;
@@ -218,11 +223,11 @@
       }
 
       33% {
-        text-shadow: 0 0 5px rgb(101, 93, 252), 0 0 20px rgb(116, 181, 255)
+        text-shadow: 0 0 5px rgb(101, 93, 252), 0 0 20px rgb(116, 181, 255);
       }
 
       66% {
-        text-shadow: 0 0 5px rgb(101, 93, 252), 0 0 23px rgb(202, 146, 255)
+        text-shadow: 0 0 5px rgb(101, 93, 252), 0 0 23px rgb(202, 146, 255);
       }
     }
   </style>
@@ -265,32 +270,37 @@
       </div>
       <div class="download-btn">download <a href="/zoom-platform.sh">zoom-platform.sh</a></div>
     </div>
-    <p><span class="color-primary"><i>zoom-platform.sh</i></span> is an official tool to streamline installation, updating, and playing Windows games from <a href="https://www.zoom-platform.com/">ZOOM Platform</a> on Linux using ULWGL and Proton.</p>
-    <p>The script helps you run our Windows installers on Linux and comes with some handy features to make sure the process goes smoothly. Games are launched using ULWGL with fixes applied from the <a href="https://github.com/Open-Wine-Components/ULWGL-protonfixes">ULWGL protonfixes</a> database.</p>
-    <p><a href="https://github.com/Open-Wine-Components/ULWGL-launcher">Unified Linux Wine Game Launcher</a> (ULWGL) is developed and maintained by "<a href="https://github.com/Open-Wine-Components">Open Wine Components</a>" (OWC) a collective of like-minded individuals working together to make Linux gaming work smoothly.</p>
+    <main>
+      <p><i class="color-primary">zoom-platform.sh</i> is an official tool to streamline installation, updating, and playing Windows games from <a href="https://www.zoom-platform.com/">ZOOM Platform</a> on Linux using UMU and Proton.</p>
+      <p>The script helps you run our Windows installers on Linux and comes with some handy features to make sure the process goes smoothly. Games are launched using UMU with fixes applied from the <a href="https://github.com/Open-Wine-Components/umu-protonfixes">UMU protonfixes</a> database.</p>
+      <p><a href="https://github.com/Open-Wine-Components/umu-launcher">UMU</a> is developed and maintained by "<a href="https://github.com/Open-Wine-Components">Open Wine Components</a>" (OWC) a collective of like-minded individuals working together to improve Linux gaming.</p>
 
-    <div class="sep"></div>
+      <div class="sep" role="separator"></div>
 
-    <div>
-      <h2>Are you affiliated with OWC?</h2>
-      <p>Not really, we're just using ULWGL for this and contribute fixes on occasion. The people behind ULWGL are doing great work, so we wanted to point them out.</p>
+      <section>
+        <h2>I thought Proton was a Steam thing, does Steam need to be installed?</h2>
+        <p>Noooope, to keep things short; OWC forked parts of the Steam Linux Runtime and Proton to make them work without Steam.</p>
 
-      <h2>I thought Proton was a Steam thing, does Steam need to be installed?</h2>
-      <p>Noooope, to keep things short; OWC forked parts of the Steam Linux Runtime and Proton to make them work without Steam.</p>
+        <h2>Where can I submit my own fixes to help make games work?</h2>
+        <p>If you're the tinkerer type, the UMU <a href="https://github.com/Open-Wine-Components/umu-protonfixes">protonfixes</a> repo is open for anyone to contribute to. Check out their project and look at existing fixes for some examples. Any fixes submitted will help people run that particular game in the future.</p>
 
-      <h2>Where can I submit my own fixes to help make games work?</h2>
-      <p>If you're the tinkerer type, the ULWGL <a href="https://github.com/Open-Wine-Components/ULWGL-protonfixes">protonfixes</a> repo is open for anyone to contribute to. Check out their project and look at existing fixes for some examples. Any fixes submitted will help people run that particular game in the future.</p>
+        <h2>How do I know if a game on ZOOM Platform works with UMU?</h2>
+        <p>Look for the [didn't make n ixcon yet]! Those games were tested to work with UMU. Please note that we can't guarantee games will work on your specific system.</p>
+        <p>The indicator on the store can be updated by anyone, if you tried a game and found it working (or not), please submit a PR to the <a href="https://github.com/ZOOM-Platform/zoomplatform-umu-compatdb">ZOOM Platform UMU Compat DB</a> to update the status on the store.</p>
 
-      <h2>How do I know if a game on ZOOM Platform works with ULWGL?</h2>
-      <p>Look for the [didn't make n ixcon yet]! Those games were tested to work with ULWGL. Please note that we can't guarantee games will work on your specific system.</p>
-      <p>The indicator on the store can be updated by anyone, if you tried a game and found it working (or not), please submit a PR to the <a href="https://github.com/ZOOM-Platform/zoomplatform-ulwgl-compatdb">ZOOM Platform ULWGL Compat DB</a> to update the status on the store.</p>
+        <h2>Can I launch installed games through Steam?</h2>
+        <p>Depending on your distro, either right-click the desktop entry then click "Add to Steam" or use the "Add a Non-Steam Game..." option in Steam then select a game from the list.</p>
 
-      <h2>I have more questions!1!!!1</h2>
-      <p>Join our <a href="https://discord.gg/zagEsVTCFP">Discord</a> if you want to talk about Linux stuff, we just opened up the <b>#penguin-zone</b>!</p>
-    </div>
+        <h2>Are you affiliated with OWC?</h2>
+        <p>Not really, we're just using UMU for this and contribute fixes on occasion. The people working on UMU are doing great work, so we wanted to point them out!</p>
+
+        <h2>I have more questions!1!!!1</h2>
+        <p>Join our <a href="https://discord.gg/zagEsVTCFP">Discord</a> if you want to talk about Linux stuff, we just opened up the <b>#penguin-zone</b>!</p>
+      </section>
+    </main>
   </div>
-  <div id="footer">
+  <footer>
     <a href="https://github.com/ZOOM-Platform/zoom-platform.sh"><svg role="img" viewBox="0 0 24 24" width="16" height="16" fill="#fff" xmlns="http://www.w3.org/2000/svg"><title>GitHub</title><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg> source (bsd-3)</a>
-  </div>
+  </footer>
 </body>
 </html>
