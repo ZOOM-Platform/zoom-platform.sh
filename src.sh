@@ -603,7 +603,7 @@ for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
 export GAMEID="$UMU_ID"
 export WINEPREFIX="$INSTALL_PATH"
 export STORE="zoomplatform"
-"$(umu_launch_command)" "$_lnkpathlinux"
+$(umu_launch_command) "$_lnkpathlinux"
 EOL
     chmod +x "$ZOOM_SHORTCUTS_PATH/$_filename.sh"
 
