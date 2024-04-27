@@ -123,14 +123,31 @@ dialog_install_dir_select() {
     fi
 }
 
-dialog_infobox() {
-    _title=$1
-    _msg=$2
+dialog_msgbox() {
+    _type=$1
+    _title=$2
+    _msg=$3
+
+    _param=''
+    case $_type in
+        "info")
+            if [ $USE_ZENITY -eq 1 ]; then _param='info'; else _param='msgbox'; fi
+        ;;
+
+        "warning")
+            if [ $USE_ZENITY -eq 1 ]; then _param='warning'; else _param='sorry'; fi
+        ;;
+
+        "error")
+            _param='error'
+        ;;
+    esac
+
     if [ $USE_ZENITY -eq 1 ]; then
-        zenity --no-wrap --info --text="$_msg" --title="$_title"
+        zenity --no-wrap --$_param --text="$_msg" --title="$_title"
         return $?
     else
-        kdialog --msgbox "$_msg" --title "$_title"
+        kdialog --$_param "$_msg" --title "$_title"
         return $?
     fi
 }
@@ -151,6 +168,27 @@ umu_launch() {
         flatpak run --env=GAMEID="$GAMEID" --env=WINEPREFIX="$WINEPREFIX" --env=PROTON_VERB="$PROTON_VERB" org.openwinecomponents.umu.umu-launcher "$@"
     else
         "$UMU_BIN" "$@"
+    fi
+}
+
+# Check permissions for path or file
+# Runs check from within the flatpak if umu flatpak is being used
+test_file_perms() {
+    _mode=$1 # r or w
+    _target=$2
+
+    case $_mode in
+        "r" | "w") ;;
+        *)
+            fatal_error "Invalid test_file_perms pararm: $_mode. Must be r or w"
+    esac
+
+    if [ "$UMU_BIN" = "FLATPAK" ]; then
+        flatpak run --command=sh org.openwinecomponents.umu.umu-launcher -c "test -$_mode \"$_target\""
+        return $?
+    else
+        test -"$_mode" "$_target"
+        return $?
     fi
 }
 
@@ -358,6 +396,17 @@ if [ $CAN_USE_DIALOGS -eq 0 ]; then
     fi
 fi
 
+# Show an error if can't read installer
+if ! test_file_perms r "$INPUT_INSTALLER" ; then
+    _msg="Installer either does not exist or $([ "$UMU_BIN" = "FLATPAK" ] && printf "UMU Flatpak does not have" || printf "no") read permissions."
+    if [ $CAN_USE_DIALOGS -eq 1 ]; then
+        dialog_msgbox error "Cannot read installer" "$_msg\n$INPUT_INSTALLER"
+        exit 1
+    else
+        fatal_error "$_msg"
+    fi
+fi
+
 # Validate and get some info from installer
 ZOOM_GUID=$($INNOEXT_BIN -s --zoom-game-id "$INPUT_INSTALLER" 2> /dev/null | trim_string)
 ZOOM_GUID_EXIT=$?
@@ -398,7 +447,7 @@ if [ -z "$INSTALL_PATH" ]; then
     if [ $CAN_USE_DIALOGS -eq 1 ]; then
         # If DLC, ask user to select prefix where base game was installed
         if [ $IS_DLC -eq 1 ]; then
-            dialog_infobox "DLC Installer Chosen" \
+            dialog_msgbox info "DLC Installer Chosen" \
                 "$(get_header_val 'app_name')\n\nSelect the same directory you chose when you installed the base game in the next prompt."
         fi
 
@@ -415,6 +464,17 @@ if [ -z "$INSTALL_PATH" ]; then
     else
         show_usage
         fatal_error 'No install directory specified'
+    fi
+fi
+
+# Show an error if install destination isn't writable, only do this for the Flatpak
+if [ "$UMU_BIN" = "FLATPAK" ] && ! test_file_perms w "$INSTALL_PATH"; then
+    _msg="The UMU Flatpak does not have write permissions to the install directory."
+    if [ $CAN_USE_DIALOGS -eq 1 ]; then
+        dialog_msgbox error "No permissions" "$_msg\n$INSTALL_PATH"
+        exit 1
+    else
+        fatal_error "$_msg"
     fi
 fi
 
