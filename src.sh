@@ -152,7 +152,7 @@ dialog_msgbox() {
     fi
 }
 
-# Generate command to launch UMU with
+# Generate command to launch umu with
 umu_launch_command() {
     if [ "$UMU_BIN" = "FLATPAK" ]; then
         # shellcheck disable=SC2016
@@ -282,7 +282,7 @@ show_usage() {
     printf 'Usage: zoom-platform.sh [OPTIONS] INSTALLER DEST
 
 Description:
-  zoom-platform.sh - Install Windows games from ZOOM Platform using UMU and Proton.
+  zoom-platform.sh - Install Windows games from ZOOM Platform using umu and Proton.
 
 Options:
   -h, --help           Display this help message and exit.
@@ -370,8 +370,9 @@ elif command -v /usr/bin/umu-run > /dev/null; then
     UMU_BIN=/usr/bin/umu-run
 elif flatpak info org.openwinecomponents.umu.umu-launcher >/dev/null 2>&1; then
     UMU_BIN="FLATPAK"
+    log_info "Using umu Flatpak"
 else
-    fatal_error "UMU is not installed"
+    fatal_error "umu is not installed"
 fi
 
 # If dialogs are usable and installer wasn't specified, show a dialog
@@ -398,7 +399,7 @@ fi
 
 # Show an error if can't read installer
 if ! test_file_perms r "$INPUT_INSTALLER" ; then
-    _msg="Installer either does not exist or $([ "$UMU_BIN" = "FLATPAK" ] && printf "UMU Flatpak does not have" || printf "no") read permissions."
+    _msg="Installer either does not exist or $([ "$UMU_BIN" = "FLATPAK" ] && printf "umu Flatpak does not have" || printf "no") read permissions."
     if [ $CAN_USE_DIALOGS -eq 1 ]; then
         dialog_msgbox error "Cannot read installer" "$_msg\n$INPUT_INSTALLER"
         exit 1
@@ -469,7 +470,7 @@ fi
 
 # Show an error if install destination isn't writable, only do this for the Flatpak
 if [ "$UMU_BIN" = "FLATPAK" ] && ! test_file_perms w "$INSTALL_PATH"; then
-    _msg="The UMU Flatpak does not have write permissions to the install directory."
+    _msg="The umu Flatpak does not have write permissions to the install directory."
     if [ $CAN_USE_DIALOGS -eq 1 ]; then
         dialog_msgbox error "No permissions" "$_msg\n$INSTALL_PATH"
         exit 1
@@ -669,7 +670,7 @@ EOL
 
     # Desktop entries do not play well with special characters, and each distro handles them
     # different enough to be annoyingly problematic.
-    # So we create a script in a location with no special characters (hopefully) that launches UMU.
+    # So we create a script in a location with no special characters (hopefully) that launches umu.
     if [ $CREATE_DESKTOP_ENTRIES -eq 1 ]; then
         _zoomdesktopfile="$ZOOM_SHORTCUTS_PATH/$_filename.desktop"
         _fsum=$(printf '%s' "$_filename" | cksum | cut -d ' ' -f1)
