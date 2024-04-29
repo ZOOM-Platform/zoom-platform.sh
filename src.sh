@@ -750,16 +750,8 @@ for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
     # Get some values from the .desktop
     _name="$(get_desktop_value "Name" "$file")"
     _lnkpathwin="$(get_desktop_value "Exec" "$file")"
-    # Unescape windows path
-    _lnkpathlinux=$(PROTON_VERB=getnativepath umu_launch "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g; s/\\\([^\\]\)/\1/g')" 2> /dev/null)
     _wmclass="$(get_desktop_value "StartupWMClass" "$file")"
     _iconname="$(get_desktop_value "Icon" "$file")"
-
-    # Get values from .lnk
-    _lnk="$(parse_lnk "$_lnkpathlinux")"
-    _lnk_exe=$(printf '%s' "$_lnk" | awk 'sub(/^LocalBasePath:/,"")')
-    _lnk_workingdir=$(printf '%s' "$_lnk" | awk 'sub(/^WORKING_DIR:/,"")')
-    _lnk_args=$(printf '%s' "$_lnk" | awk 'sub(/^COMMAND_LINE_ARGUMENTS:/,"")')
 
     # Skip certain shortcuts
     case $_wmclass in
@@ -776,6 +768,14 @@ for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
             esac
             ;;
     esac
+
+    # Unescape windows path
+    _lnkpathlinux=$(PROTON_VERB=getnativepath umu_launch "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g; s/\\\([^\\]\)/\1/g')" 2> /dev/null)
+    # Get values from .lnk
+    _lnk="$(parse_lnk "$_lnkpathlinux")"
+    _lnk_exe=$(printf '%s' "$_lnk" | awk 'sub(/^LocalBasePath:/,"")')
+    _lnk_workingdir=$(printf '%s' "$_lnk" | awk 'sub(/^WORKING_DIR:/,"")')
+    _lnk_args=$(printf '%s' "$_lnk" | awk 'sub(/^COMMAND_LINE_ARGUMENTS:/,"")')
 
     # Get absolute path to largest icon
     _iconpath="$PROTON_SHORTCUTS_PATH/icons/$(find "$PROTON_SHORTCUTS_PATH/icons" -type f -name "*$_iconname.png" -printf '%P\n' | sort -n -tx -k1 -r | head -n 1)"
