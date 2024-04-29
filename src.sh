@@ -278,6 +278,120 @@ prefix_has_any_game() {
     return $_r
 }
 
+_lnk_read_block() {
+    _lnkpath=$1
+    _offset=$2
+    _length=$3
+    od --endian=little -tdI -An -j "$_offset" -N "$_length" "$_lnkpath" | tr -d '\n '
+}
+
+_lnk_readstr_utf16() {
+    _lnkpath=$1
+    _offset=$2
+    _length=$3
+    _unicode=$4
+    _result=''
+    if [ "$_unicode" = 1 ]; then
+        # stop at first \0 by getting offset and overriding _length
+        _nul_offset=$(od -w2 -v -t x2 -Ad -j "$_offset" -N "$_length" "$_lnkpath" | awk '$2 == "0000" {print $1+0;exit}')
+        [ -n "$_nul_offset" ] && _length=$((_nul_offset-_offset))
+
+        _result=$(dd skip="$_offset" count="$_length" if="$_lnkpath" bs=1 status=none | iconv -f UTF-16LE -t UTF-8)
+    else
+        _result=$(od -S1 -An -j "$_offset" -N "$_length" "$_lnkpath")
+    fi
+    printf '%s' "$_result" | sed 's/\\/\\\\/g'
+}
+
+_lnk_read_stringdata_len() {
+    _lnkpath=$1
+    _offset=$2
+    _unicode=$3
+    _len=$(_lnk_read_block "$_lnkpath" "$_offset" 2) # CountCharacters
+    if [ "$_unicode" = 1 ]; then
+        printf '%s' $((_len*2))
+    else
+        printf '%s' "$_len"
+    fi
+}
+
+_lnk_read_stringdata() {
+    _lnkpath=$1
+    _offset=$2
+    _length=$3
+    _unicode=$4
+    if [ "$_length" -gt 0 ]; then
+        printf '%s' "$(_lnk_readstr_utf16 "$_lnkpath" $((_offset+2)) "$_length" "$_unicode")"
+    fi
+}
+
+# Parse Windows .lnk for data
+# Based on these documentation: 
+# - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-shllink/16cb4ca1-9339-4d0c-a68d-bf1d6cc0f943
+# - https://github.com/libyal/liblnk/tree/main/documentation
+parse_lnk() {
+  _lnkpath="$1"
+
+  # https://github.com/libyal/liblnk/blob/main/documentation/Windows%20Shortcut%20File%20(LNK)%20format.asciidoc#21-data-flags
+  _flags_oct=$(od -An -j 20 -N 1 "$_lnkpath" | tr -d '\n ')
+  _flags=$(printf 'ibase=8; %s\n' "$_flags_oct" | bc)
+
+  # https://github.com/libyal/liblnk/blob/main/documentation/Windows%20Shortcut%20File%20(LNK)%20format.asciidoc#3-link-target-identifier
+  _itemlist_count=$(_lnk_read_block "$_lnkpath" 76 2)
+
+  # LinkInfo
+  # https://github.com/libyal/liblnk/blob/main/documentation/Windows%20Shortcut%20File%20(LNK)%20format.asciidoc#4-location-information
+  _location_offset=$((_itemlist_count+78)) # skip guid
+  _link_info_length=$(_lnk_read_block "$_lnkpath" $_location_offset 4)            # LinkInfoSize
+  _link_info_header_size=$(_lnk_read_block "$_lnkpath" $((_location_offset+4)) 4) # LinkInfoHeaderSize
+  _link_info_flags=$(_lnk_read_block "$_lnkpath" $((_location_offset+8)) 4)       # LinkInfoFlags
+  _basepath_offset=$(_lnk_read_block "$_lnkpath" $((_location_offset+16)) 4)      # LocalBasePathOffset
+
+  _basepath_is_unicode=0
+  # Use unicode offset instead
+  if [ "$_link_info_header_size" -gt 28 ]; then
+    _basepath_offset=$(_lnk_read_block "$_lnkpath" $((_location_offset+28)) 4) # LocalBasePathOffsetUnicode
+    _basepath_is_unicode=1
+  fi
+
+  _localpath_offset=$((_location_offset+_basepath_offset))
+  _localpath_end=$((_location_offset+_link_info_length))
+  _localpath_length=$((_localpath_end-_localpath_offset))
+
+  _localpath=$(_lnk_readstr_utf16 "$_lnkpath" $_localpath_offset $_localpath_length $_basepath_is_unicode) # LocalBasePath or LocalBasePathUnicode
+
+  printf 'LocalBasePath:%s\n' "$_localpath"
+
+  # StringData
+  # STRING_DATA = [NAME_STRING] [RELATIVE_PATH] [WORKING_DIR] [COMMAND_LINE_ARGUMENTS] [ICON_LOCATION]
+  # https://github.com/libyal/liblnk/blob/main/documentation/Windows%20Shortcut%20File%20(LNK)%20format.asciidoc#5-data-strings
+  
+  _stringdata_is_unicode=0
+  # IsUnicode
+  [ "$((_flags & 0x00000080))" -ne 0 ] && _stringdata_is_unicode=1
+
+  _stringdata_offset=$_localpath_end
+  # HasName HasRelativePath HasWorkingDir HasArguments HasIconLocation
+  for i in 0x00000004 0x00000008 0x00000010 0x00000020 0x00000040 ; do
+    if [ "$((_flags & i))" -ne 0 ]; then
+      _stringdata_length=$(_lnk_read_stringdata_len "$_lnkpath" "$_stringdata_offset" $_stringdata_is_unicode)
+      _stringdata_value="$(_lnk_read_stringdata "$_lnkpath" "$_stringdata_offset" "$_stringdata_length" $_stringdata_is_unicode)"
+      _stringdata_offset=$((_stringdata_offset+_stringdata_length))
+      [ $_stringdata_is_unicode = 1 ] && _stringdata_offset=$((_stringdata_offset+2))
+      if [ -n "$_stringdata_value" ]; then
+        case "$i" in
+          0x00000004) printf 'NAME_STRING:';;
+          0x00000008) printf 'RELATIVE_PATH:';;
+          0x00000010) printf 'WORKING_DIR:';;
+          0x00000020) printf 'COMMAND_LINE_ARGUMENTS:';;
+          0x00000040) printf 'ICON_LOCATION:';;
+        esac
+        printf '%s\n' "$_stringdata_value"
+      fi
+    fi
+  done
+}
+
 show_usage() {
     printf 'Usage: zoom-platform.sh [OPTIONS] INSTALLER DEST
 
@@ -304,9 +418,11 @@ Note:
   - When the -i or -d options are used, they take priority over the arguments.
   - If updating a game or installing DLC, DEST should be the same path that the
     base game was installed in.
+  - If you tick "Create a desktop shortcut" during setup, Desktop entries will be
+    placed in: %s
 
 Source & issues: %s
-' "$REPO_PATH"
+' "$(xdg-user-dir DESKTOP)" "$REPO_PATH"
 }
 
 INPUT_INSTALLER=""
@@ -624,7 +740,7 @@ GAME_NAME_SAFE=$(get_header_val 'default_group_name')
 PROTON_SHORTCUTS_PATH="$INSTALL_PATH/drive_c/proton_shortcuts"
 APPLICATIONS_PATH="$HOME/.local/share/applications/zoom-platform/$GAME_NAME_SAFE"
 ZOOM_SHORTCUTS_PATH="$INSTALL_PATH/drive_c/zoom_shortcuts"
-log_info "Creating shortcuts..."
+log_info "Creating desktop entries..."
 mkdir -p "$ZOOM_SHORTCUTS_PATH"
 sleep 2 # should be enough time for wine to create shortcuts
 for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
@@ -634,8 +750,16 @@ for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
     # Get some values from the .desktop
     _name="$(get_desktop_value "Name" "$file")"
     _lnkpathwin="$(get_desktop_value "Exec" "$file")"
+    # Unescape windows path
+    _lnkpathlinux=$(PROTON_VERB=getnativepath umu_launch "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g; s/\\\([^\\]\)/\1/g')" 2> /dev/null)
     _wmclass="$(get_desktop_value "StartupWMClass" "$file")"
     _iconname="$(get_desktop_value "Icon" "$file")"
+
+    # Get values from .lnk
+    _lnk="$(parse_lnk "$_lnkpathlinux")"
+    _lnk_exe=$(printf '%s' "$_lnk" | awk 'sub(/^LocalBasePath:/,"")')
+    _lnk_workingdir=$(printf '%s' "$_lnk" | awk 'sub(/^WORKING_DIR:/,"")')
+    _lnk_args=$(printf '%s' "$_lnk" | awk 'sub(/^COMMAND_LINE_ARGUMENTS:/,"")')
 
     # Skip certain shortcuts
     case $_wmclass in
@@ -653,9 +777,6 @@ for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
             ;;
     esac
 
-    # Win -> Linux path
-    # Unescape windows paths
-    _lnkpathlinux=$(PROTON_VERB=getnativepath umu_launch "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g; s/\\\([^\\]\)/\1/g')" 2> /dev/null)
     # Get absolute path to largest icon
     _iconpath="$PROTON_SHORTCUTS_PATH/icons/$(find "$PROTON_SHORTCUTS_PATH/icons" -type f -name "*$_iconname.png" -printf '%P\n' | sort -n -tx -k1 -r | head -n 1)"
 
@@ -664,7 +785,7 @@ for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
 export GAMEID="$UMU_ID"
 export WINEPREFIX="$INSTALL_PATH"
 export STORE="zoomplatform"
-$(umu_launch_command) "$_lnkpathlinux"
+$(umu_launch_command) start /b /d "$_lnk_workingdir" "$_lnk_exe" $_lnk_args
 EOL
     chmod +x "$ZOOM_SHORTCUTS_PATH/$_filename.sh"
 
