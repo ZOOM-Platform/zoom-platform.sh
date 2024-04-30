@@ -303,93 +303,77 @@ _lnk_readstr_utf16() {
     printf '%s' "$_result" | sed 's/\\/\\\\/g'
 }
 
-_lnk_read_stringdata_len() {
-    _lnkpath=$1
-    _offset=$2
-    _unicode=$3
-    _len=$(_lnk_read_block "$_lnkpath" "$_offset" 2) # CountCharacters
-    if [ "$_unicode" = 1 ]; then
-        printf '%s' $((_len*2))
-    else
-        printf '%s' "$_len"
-    fi
-}
-
-_lnk_read_stringdata() {
-    _lnkpath=$1
-    _offset=$2
-    _length=$3
-    _unicode=$4
-    if [ "$_length" -gt 0 ]; then
-        printf '%s' "$(_lnk_readstr_utf16 "$_lnkpath" $((_offset+2)) "$_length" "$_unicode")"
-    fi
-}
-
 # Parse Windows .lnk for data
 # Based on these documentation: 
 # - https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-shllink/16cb4ca1-9339-4d0c-a68d-bf1d6cc0f943
 # - https://github.com/libyal/liblnk/tree/main/documentation
 parse_lnk() {
-  _lnkpath="$1"
+    _lnkpath="$1"
 
-  # https://github.com/libyal/liblnk/blob/main/documentation/Windows%20Shortcut%20File%20(LNK)%20format.asciidoc#21-data-flags
-  _flags_oct=$(od -An -j 20 -N 1 "$_lnkpath" | tr -d '\n ')
-  _flags=$(printf 'ibase=8; %s\n' "$_flags_oct" | bc)
+    # https://github.com/libyal/liblnk/blob/main/documentation/Windows%20Shortcut%20File%20(LNK)%20format.asciidoc#21-data-flags
+    _flags_oct=$(od -An -j 20 -N 1 "$_lnkpath" | tr -d '\n ')
+    _flags=$(printf 'ibase=8; %s\n' "$_flags_oct" | bc)
 
-  # https://github.com/libyal/liblnk/blob/main/documentation/Windows%20Shortcut%20File%20(LNK)%20format.asciidoc#3-link-target-identifier
-  _itemlist_count=$(_lnk_read_block "$_lnkpath" 76 2)
+    # https://github.com/libyal/liblnk/blob/main/documentation/Windows%20Shortcut%20File%20(LNK)%20format.asciidoc#3-link-target-identifier
+    _itemlist_count=$(_lnk_read_block "$_lnkpath" 76 2)
 
-  # LinkInfo
-  # https://github.com/libyal/liblnk/blob/main/documentation/Windows%20Shortcut%20File%20(LNK)%20format.asciidoc#4-location-information
-  _location_offset=$((_itemlist_count+78)) # skip guid
-  _link_info_length=$(_lnk_read_block "$_lnkpath" $_location_offset 4)            # LinkInfoSize
-  _link_info_header_size=$(_lnk_read_block "$_lnkpath" $((_location_offset+4)) 4) # LinkInfoHeaderSize
-  _link_info_flags=$(_lnk_read_block "$_lnkpath" $((_location_offset+8)) 4)       # LinkInfoFlags
-  _basepath_offset=$(_lnk_read_block "$_lnkpath" $((_location_offset+16)) 4)      # LocalBasePathOffset
+    # LinkInfo
+    # https://github.com/libyal/liblnk/blob/main/documentation/Windows%20Shortcut%20File%20(LNK)%20format.asciidoc#4-location-information
+    _location_offset=$((_itemlist_count+78)) # skip guid
+    _link_info_length=$(_lnk_read_block "$_lnkpath" $_location_offset 4)            # LinkInfoSize
+    _link_info_header_size=$(_lnk_read_block "$_lnkpath" $((_location_offset+4)) 4) # LinkInfoHeaderSize
+    _link_info_flags=$(_lnk_read_block "$_lnkpath" $((_location_offset+8)) 4)       # LinkInfoFlags
+    _basepath_offset=$(_lnk_read_block "$_lnkpath" $((_location_offset+16)) 4)      # LocalBasePathOffset
 
-  _basepath_is_unicode=0
-  # Use unicode offset instead
-  if [ "$_link_info_header_size" -gt 28 ]; then
-    _basepath_offset=$(_lnk_read_block "$_lnkpath" $((_location_offset+28)) 4) # LocalBasePathOffsetUnicode
-    _basepath_is_unicode=1
-  fi
-
-  _localpath_offset=$((_location_offset+_basepath_offset))
-  _localpath_end=$((_location_offset+_link_info_length))
-  _localpath_length=$((_localpath_end-_localpath_offset))
-
-  _localpath=$(_lnk_readstr_utf16 "$_lnkpath" $_localpath_offset $_localpath_length $_basepath_is_unicode) # LocalBasePath or LocalBasePathUnicode
-
-  printf 'LocalBasePath:%s\n' "$_localpath"
-
-  # StringData
-  # STRING_DATA = [NAME_STRING] [RELATIVE_PATH] [WORKING_DIR] [COMMAND_LINE_ARGUMENTS] [ICON_LOCATION]
-  # https://github.com/libyal/liblnk/blob/main/documentation/Windows%20Shortcut%20File%20(LNK)%20format.asciidoc#5-data-strings
-  
-  _stringdata_is_unicode=0
-  # IsUnicode
-  [ "$((_flags & 0x00000080))" -ne 0 ] && _stringdata_is_unicode=1
-
-  _stringdata_offset=$_localpath_end
-  # HasName HasRelativePath HasWorkingDir HasArguments HasIconLocation
-  for i in 0x00000004 0x00000008 0x00000010 0x00000020 0x00000040 ; do
-    if [ "$((_flags & i))" -ne 0 ]; then
-      _stringdata_length=$(_lnk_read_stringdata_len "$_lnkpath" "$_stringdata_offset" $_stringdata_is_unicode)
-      _stringdata_value="$(_lnk_read_stringdata "$_lnkpath" "$_stringdata_offset" "$_stringdata_length" $_stringdata_is_unicode)"
-      _stringdata_offset=$((_stringdata_offset+_stringdata_length))
-      [ $_stringdata_is_unicode = 1 ] && _stringdata_offset=$((_stringdata_offset+2))
-      if [ -n "$_stringdata_value" ]; then
-        case "$i" in
-          0x00000004) printf 'NAME_STRING:';;
-          0x00000008) printf 'RELATIVE_PATH:';;
-          0x00000010) printf 'WORKING_DIR:';;
-          0x00000020) printf 'COMMAND_LINE_ARGUMENTS:';;
-          0x00000040) printf 'ICON_LOCATION:';;
-        esac
-        printf '%s\n' "$_stringdata_value"
-      fi
+    _basepath_is_unicode=0
+    # Use unicode offset instead
+    if [ "$_link_info_header_size" -gt 28 ]; then
+        _basepath_offset=$(_lnk_read_block "$_lnkpath" $((_location_offset+28)) 4) # LocalBasePathOffsetUnicode
+        _basepath_is_unicode=1
     fi
-  done
+
+    _localpath_offset=$((_location_offset+_basepath_offset))
+    _localpath_end=$((_location_offset+_link_info_length))
+    _localpath_length=$((_localpath_end-_localpath_offset))
+
+    _localpath=$(_lnk_readstr_utf16 "$_lnkpath" $_localpath_offset $_localpath_length $_basepath_is_unicode) # LocalBasePath or LocalBasePathUnicode
+
+    printf 'LocalBasePath:%s\n' "$_localpath"
+
+    # StringData
+    # STRING_DATA = [NAME_STRING] [RELATIVE_PATH] [WORKING_DIR] [COMMAND_LINE_ARGUMENTS] [ICON_LOCATION]
+    # https://github.com/libyal/liblnk/blob/main/documentation/Windows%20Shortcut%20File%20(LNK)%20format.asciidoc#5-data-strings
+    
+    _stringdata_is_unicode=0
+    # IsUnicode
+    [ "$((_flags & 0x00000080))" -ne 0 ] && _stringdata_is_unicode=1
+
+    _stringdata_offset=$_localpath_end
+    # HasName HasRelativePath HasWorkingDir HasArguments HasIconLocation
+    for i in 0x00000004 0x00000008 0x00000010 0x00000020 0x00000040 ; do
+        if [ "$((_flags & i))" -ne 0 ]; then
+            _stringdata_length=$(_lnk_read_block "$_lnkpath" "$_stringdata_offset" 2) # CountCharacters
+            [ "$_stringdata_is_unicode" = 1 ] && _stringdata_length=$((_stringdata_length*2))
+
+            _stringdata_value=''
+            [ "$_stringdata_length" -gt 0 ] && \
+                _stringdata_value="$(_lnk_readstr_utf16 "$_lnkpath" $((_stringdata_offset+2)) "$_stringdata_length" "$_stringdata_is_unicode")"
+
+            _stringdata_offset=$((_stringdata_offset+_stringdata_length))
+            [ $_stringdata_is_unicode = 1 ] && _stringdata_offset=$((_stringdata_offset+2))
+
+            if [ -n "$_stringdata_value" ]; then
+                case "$i" in
+                    0x00000004) printf 'NAME_STRING:';;
+                    0x00000008) printf 'RELATIVE_PATH:';;
+                    0x00000010) printf 'WORKING_DIR:';;
+                    0x00000020) printf 'COMMAND_LINE_ARGUMENTS:';;
+                    0x00000040) printf 'ICON_LOCATION:';;
+                esac
+                printf '%s\n' "$_stringdata_value"
+            fi
+        fi
+    done
 }
 
 show_usage() {
