@@ -19,7 +19,7 @@ UMU_BIN=umu-run
 CAN_USE_DIALOGS=0
 USE_ZENITY=1
 (command -v kdialog >/dev/null || command -v zenity >/dev/null) && [ -n "$DISPLAY" ] && CAN_USE_DIALOGS=1
-if [ $CAN_USE_DIALOGS -eq 1 ] && ! command -v zenity >/dev/null; then USE_ZENITY=0; fi
+[ $CAN_USE_DIALOGS -eq 1 ] && ! command -v zenity >/dev/null && USE_ZENITY=0
 
 # .shellcheck will consume ram trying to parse INNOEXTRACT_BINARY_B64
 # when developing, just load the bin from working dir
@@ -60,9 +60,7 @@ base64_dec() {
 validate_uuid() {
     _input="$1"
     _uuid_pattern="^[0-9a-fA-F]\{8\}-[0-9a-fA-F]\{4\}-[0-9a-fA-F]\{4\}-[0-9a-fA-F]\{4\}-[0-9a-fA-F]\{12\}$"
-    if expr "$_input" : "$_uuid_pattern" > /dev/null; then
-        return 0
-    fi
+    expr "$_input" : "$_uuid_pattern" > /dev/null && return 0
     return 1
 }
 
@@ -130,17 +128,9 @@ dialog_msgbox() {
 
     _param=''
     case $_type in
-        "info")
-            if [ $USE_ZENITY -eq 1 ]; then _param='info'; else _param='msgbox'; fi
-        ;;
-
-        "warning")
-            if [ $USE_ZENITY -eq 1 ]; then _param='warning'; else _param='sorry'; fi
-        ;;
-
-        "error")
-            _param='error'
-        ;;
+        "info") [ $USE_ZENITY -eq 1 ] && _param='info' || _param='msgbox' ;;
+        "warning") [ $USE_ZENITY -eq 1 ] && _param='warning' || _param='sorry' ;;
+        "error") _param='error' ;;
     esac
 
     if [ $USE_ZENITY -eq 1 ]; then
@@ -164,7 +154,7 @@ umu_launch_command() {
 
 umu_launch() {
     if [ "$UMU_BIN" = "FLATPAK" ]; then
-        if [ -z "$PROTON_VERB" ]; then PROTON_VERB=waitforexitandrun; fi
+        [ -z "$PROTON_VERB" ] && PROTON_VERB=waitforexitandrun
         flatpak run --env=GAMEID="$GAMEID" --env=WINEPREFIX="$WINEPREFIX" --env=PROTON_VERB="$PROTON_VERB" org.openwinecomponents.umu.umu-launcher "$@"
     else
         "$UMU_BIN" "$@"
@@ -197,17 +187,17 @@ is_valid_prefix() {
     _wine_prefix="$1"
 
     # Check if the directory exists
-    if [ ! -d "$_wine_prefix" ]; then return 1; fi
+    [ ! -d "$_wine_prefix" ] && return 1
 
     # Check for some files and dirs
     _required_dirs="drive_c dosdevices"
     _required_files="system.reg user.reg"
     for dir in $_required_dirs; do
-        if [ ! -d "$_wine_prefix/$dir" ]; then return 1; fi
+        [ ! -d "$_wine_prefix/$dir" ] && return 1
     done
 
     for f in $_required_files; do
-        if [ ! -f "$_wine_prefix/$f" ]; then return 1; fi
+        [ ! -f "$_wine_prefix/$f" ] && return 1
     done
 
     return 0
@@ -231,7 +221,7 @@ get_prefix_reg_val() {
         }
     ' "$_wine_prefix/system.reg" | awk -F'"' '{print $4}')"
 
-    printf '%s\n' "$_res" # the new line is required for while read
+    printf '%s\n' "$_res" # the line break is required for while read
 }
 
 # Check if wine prefix has a specific zoom game installed
@@ -441,18 +431,14 @@ while true; do
   esac
 done
 
-if [ -z "$INPUT_INSTALLER" ]; then
-    INPUT_INSTALLER=$1
-fi
+[ -z "$INPUT_INSTALLER" ] && INPUT_INSTALLER=$1
 
-if [ -z "$INSTALL_PATH" ]; then
-    INSTALL_PATH=$2
-fi
+[ -z "$INSTALL_PATH" ] && INSTALL_PATH=$2
 
 # Unpack innoextract into tmp
 base64_dec "$(get_innoext_string)" > $INNOEXT_BIN
 PAYLOAD_DECODED_STATUS=$?
-if [ $PAYLOAD_DECODED_STATUS -ne 0 ]; then fatal_error "Could not decode base64."; fi
+[ $PAYLOAD_DECODED_STATUS -ne 0 ] && fatal_error "Could not decode base64."
 if [ -s "$INNOEXT_BIN" ]; then
     # Make it executable and test it
     chmod +x $INNOEXT_BIN
@@ -527,7 +513,7 @@ INNO_APPID=$(get_header_val 'app_id' | sed 's/[{}]//g') # Strip {{}
 
 # Check if installer is for DLC
 IS_DLC=0
-if [ "$(get_header_val 'default_dir_name')" = "{code:GetInstallationPath}" ]; then IS_DLC=1; fi
+[ "$(get_header_val 'default_dir_name')" = "{code:GetInstallationPath}" ] && IS_DLC=1
 
 # Show installer info
 printf "
@@ -628,7 +614,7 @@ EOL
 
 # DLC's don't need this since main game should already be installed.
 # Also don't need to do this if game is already installed
-if [ $IS_DLC -eq 0 ] && ! prefix_has_game "$INSTALL_PATH" "$ZOOM_GUID"; then 
+if [ $IS_DLC -eq 0 ] && ! prefix_has_game "$INSTALL_PATH" "$ZOOM_GUID"; then
     cat >"$INSTALL_PATH/drive_c/zoom_regkeys.bat" <<EOL
 @echo off
 REM We do a check cause we don't want to overwrite in case of an update that changes the default installation directory.
@@ -648,7 +634,7 @@ printf '\n' > "$INSTALL_PATH/drive_c/zoom_installer.log"
 # If installer doesn't have custom components then it can be installed silently
 # Disabling for now, need to figure out how to reliably check this
 VERYSILENT=0
-# if [ -z "$(get_header_val 'component_count')" ] || [ "$(get_header_val 'component_count')" -eq 0 ]; then VERYSILENT=1; fi
+# [ -z "$(get_header_val 'component_count')" ] || [ "$(get_header_val 'component_count')" -eq 0 ] && VERYSILENT=1
 
 # Launch installer in a subprocess
 # Only important stuff like the EULA and configurable items should show.
@@ -714,7 +700,7 @@ done < "$INSTALL_PATH/drive_c/zoom_installer.log"
 # Query API for UMU ID
 UMU_ID="$(get_umu_id "$ZOOM_GUID")"
 UMU_ID_EXIT=$?
-if [ $UMU_ID_EXIT -gt 0 ]; then UMU_ID="0"; fi
+[ $UMU_ID_EXIT -gt 0 ] && UMU_ID="0"
 
 
 CREATE_DESKTOP_ENTRIES=1
@@ -822,7 +808,7 @@ if [ $CREATE_DESKTOP_ENTRIES -eq 1 ]; then
     done
     printf '\n'
     log_info "Installation complete! You can now launch your games from the applications launcher."
-    log_info "To add to your Steam library, go to \"Games\" -> \"Add a Non-Steam Game to My Library\" then select it from the popup."
+    log_info "To add to your Steam library, from within Steam go to \"Games\" -> \"Add a Non-Steam Game to My Library\" then select it from the popup."
 else
     printf '\n'
     log_info "Installation complete! Desktop entry creation was skipped, the launch scripts are in \"$ZOOM_SHORTCUTS_PATH\""
