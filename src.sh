@@ -663,13 +663,20 @@ umu_launch "$INPUT_INSTALLER" \
     "$([ "$VERYSILENT" -eq 1 ] && printf "/VERYSILENT")" &
 
 # Watch the install log
+_currentfile=0
+_filecount=$(("$(get_header_val 'file_count')"+"$(get_header_val 'icon_count')"))
 _readlog=1
 while [ $_readlog -eq 1 ]; do
     sleep 0.010
     while read -r line || [ -n "$line" ]; do
         case $line in
             *"Dest filename: "*)
-                show_log_file_line "$line" "$(get_header_val 'default_dir_name')"
+                # show_log_file_line "$line" "$(get_header_val 'default_dir_name')" # too slow
+                _currentfile=$((_currentfile+1))
+                printf "\r\e[K\033[33m[\033[35mzoom-platform.sh\033[33m]\033[0m: Extracting: %d/%d [%.2f%%]" \
+                    $_currentfile \
+                    $_filecount \
+                    "$(printf 'x=(%d/%d)*100; if(x<1 && x > 0) print 0; x\n' $_currentfile $_filecount | bc -l)"
             ;;
             *"Exception message"* | *"Got EAbort exception"*)
                 _readlog=0
