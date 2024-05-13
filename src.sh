@@ -302,7 +302,7 @@ parse_lnk() {
 
     # https://github.com/libyal/liblnk/blob/main/documentation/Windows%20Shortcut%20File%20(LNK)%20format.asciidoc#21-data-flags
     _flags_oct=$(od -An -j 20 -N 1 "$_lnkpath" | tr -d '\n ')
-    _flags=$(printf 'ibase=8; %s\n' "$_flags_oct" | bc)
+    _flags=$(printf '%s\n' "$_flags_oct" | dd status=none)
 
     # https://github.com/libyal/liblnk/blob/main/documentation/Windows%20Shortcut%20File%20(LNK)%20format.asciidoc#3-link-target-identifier
     _itemlist_count=$(_lnk_read_block "$_lnkpath" 76 2)
@@ -659,10 +659,7 @@ while [ $_readlog -eq 1 ]; do
             *"Dest filename: "*)
                 # show_log_file_line "$line" "$(get_header_val 'default_dir_name')" # too slow
                 _currentfile=$((_currentfile+1))
-                printf "\r\e[K\033[33m[\033[35mzoom-platform.sh\033[33m]\033[0m: Extracting: %d/%d [%.2f%%]" \
-                    $_currentfile \
-                    $_filecount \
-                    "$(printf 'x=(%d/%d)*100; if(x<1 && x > 0) print 0; x\n' $_currentfile $_filecount | bc -l)"
+                printf "\r\e[K\033[33m[\033[35mzoom-platform.sh\033[33m]\033[0m: Extracting: %d/%d" $_currentfile $_filecount
             ;;
             *"Exception message"* | *"Got EAbort exception"*)
                 _readlog=0
