@@ -31,12 +31,59 @@ get_innoext_string() {
     fi
 }
 
+dialog_installer_select() {
+    if [ $USE_ZENITY -eq 1 ]; then
+        zenity --file-selection --title="Select a ZOOM Platform installer"
+        return $?
+    else
+        kdialog --getopenfilename . "ZOOM Platform Windows installer (*.exe)" --title "Select a ZOOM Platform installer"
+        return $?
+    fi
+}
+
+dialog_install_dir_select() {
+    if [ $USE_ZENITY -eq 1 ]; then
+        zenity --file-selection --directory --title="Select an installation directory"
+        return $?
+    else
+        kdialog --getexistingdirectory . --title "Select an installation directory"
+        return $?
+    fi
+}
+
+dialog_msgbox() {
+    _type=$1
+    _title=$2
+    _msg=$3
+
+    [ -z "$_title" ] && _title=""
+
+    _param=''
+    case $_type in
+        "info") [ $USE_ZENITY -eq 1 ] && _param='info' || _param='msgbox' ;;
+        "warning") [ $USE_ZENITY -eq 1 ] && _param='warning' || _param='sorry' ;;
+        "error") _param='error' ;;
+    esac
+
+    if [ $USE_ZENITY -eq 1 ]; then
+        zenity --no-wrap --$_param --text="$_msg" --title="$_title"
+        return $?
+    else
+        kdialog --$_param "$_msg" --title "$_title"
+        return $?
+    fi
+}
+
 log_error() {
     printf "\033[31;1mERROR:\033[0m %s\n" "$*" >&2
 }
 
+# Shows an error dialog and an error message then exits
+# $1: Error message
+# $2: Msgbox title (optional)
 fatal_error() {
-    log_error "$*"
+    [ $CAN_USE_DIALOGS -eq 1 ] && dialog_msgbox error "$2" "$1"
+    log_error "$1"
     exit 1
 }
 
@@ -99,47 +146,6 @@ show_log_file_line() {
     _install_dir=$(printf '%s' "$2" | sed 's/\\/\\\\/g')
     _line=$(printf '%s' "$1" | sed -n "s/.*Dest filename: $_install_dir//p" | sed 's/^\\//;s/\\/\//g')
     printf "\r\e[K\033[33m[\033[35mzoom-platform.sh\033[33m]\033[0m: Extracting: %s" "$_line"
-}
-
-dialog_installer_select() {
-    if [ $USE_ZENITY -eq 1 ]; then
-        zenity --file-selection --title="Select a ZOOM Platform installer"
-        return $?
-    else
-        kdialog --getopenfilename . "ZOOM Platform Windows installer (*.exe)" --title "Select a ZOOM Platform installer"
-        return $?
-    fi
-}
-
-dialog_install_dir_select() {
-    if [ $USE_ZENITY -eq 1 ]; then
-        zenity --file-selection --directory --title="Select an installation directory"
-        return $?
-    else
-        kdialog --getexistingdirectory . --title "Select an installation directory"
-        return $?
-    fi
-}
-
-dialog_msgbox() {
-    _type=$1
-    _title=$2
-    _msg=$3
-
-    _param=''
-    case $_type in
-        "info") [ $USE_ZENITY -eq 1 ] && _param='info' || _param='msgbox' ;;
-        "warning") [ $USE_ZENITY -eq 1 ] && _param='warning' || _param='sorry' ;;
-        "error") _param='error' ;;
-    esac
-
-    if [ $USE_ZENITY -eq 1 ]; then
-        zenity --no-wrap --$_param --text="$_msg" --title="$_title"
-        return $?
-    else
-        kdialog --$_param "$_msg" --title "$_title"
-        return $?
-    fi
 }
 
 # Generate command to launch umu with
@@ -438,13 +444,13 @@ done
 # Unpack innoextract into tmp
 base64_dec "$(get_innoext_string)" > $INNOEXT_BIN
 PAYLOAD_DECODED_STATUS=$?
-[ $PAYLOAD_DECODED_STATUS -ne 0 ] && fatal_error "Could not decode base64."
+[ $PAYLOAD_DECODED_STATUS -ne 0 ] && fatal_error "Could not decode base64." "Error unpacking innoextract"
 if [ -s "$INNOEXT_BIN" ]; then
     # Make it executable and test it
     chmod +x $INNOEXT_BIN
     $INNOEXT_BIN --version > /dev/null 2>&1 || fatal_error "Cannot launch $INNOEXT_BIN"
 else
-    fatal_error "Could not decode base64."
+    fatal_error "Could not decode base64." "Error unpacking innoextract"
 fi
 
 # Check if UWU is installed
@@ -486,12 +492,7 @@ fi
 # Show an error if can't read installer
 if ! test_file_perms r "$INPUT_INSTALLER" ; then
     _msg="Installer either does not exist or $([ "$UMU_BIN" = "FLATPAK" ] && printf "umu Flatpak does not have" || printf "no") read permissions."
-    if [ $CAN_USE_DIALOGS -eq 1 ]; then
-        dialog_msgbox error "Cannot read installer" "$_msg\n$INPUT_INSTALLER"
-        exit 1
-    else
-        fatal_error "$_msg"
-    fi
+    fatal_error "$_msg"
 fi
 
 # Validate and get some info from installer
@@ -501,7 +502,7 @@ ZOOM_GUID_EXIT=$?
 if [ $ZOOM_GUID_EXIT -gt 0 ] || ! validate_uuid "$ZOOM_GUID"; then
     fatal_error "This doesn't seem to be a ZOOM Platform installer.
 If you think this is an error, please submit a bug report:
-$REPO_PATH/issues"
+$REPO_PATH/issues" "Invalid ZOOM Platform Installer"
 fi
 
 INSTALLER_INFO=$($INNOEXT_BIN -s --print-headers "$INPUT_INSTALLER")
@@ -629,7 +630,7 @@ EOL
     umu_launch start "C:\\zoom_regkeys.bat"
 fi
 
-printf '\n' > "$INSTALL_PATH/drive_c/zoom_installer.log"
+printf "\n" > "$INSTALL_PATH/drive_c/zoom_installer.log"
 
 # If installer doesn't have custom components then it can be installed silently
 # Disabling for now, need to figure out how to reliably check this
@@ -679,14 +680,18 @@ while [ $_readlog -eq 1 ]; do
         else
             case $line in
                 *"Need to restart Windows?"*) # User shouldn't launch the game through the option supplied by Inno, kill installer asap
-                    printf '\n'
+                    printf "\n\r"
                     log_info "Installer finished! Force closing."
+                    printf "\r"
                     pkill -f "/ZOOMINSTALLERGUID=$ZOOM_GUID"
+                    printf "\r"
                     _readlog=0
                     ;;
                 *"Log closed."*) # Shouldn't be able to get to this point if killed by above
                     _readlog=0
-                    printf "\n"
+                    printf "\n\r"
+                    pkill -f "/ZOOMINSTALLERGUID=$ZOOM_GUID"
+                    printf "\r"
                     fatal_error "Installer failed or canceled."
                     ;;
             esac
@@ -803,10 +808,10 @@ if [ $CREATE_DESKTOP_ENTRIES -eq 1 ]; then
             ln -sf "$_existingdesktoppath" "$(xdg-user-dir DESKTOP)/$_filename.desktop"
         fi
     done
-    printf '\n'
+    printf "\n"
     log_info "Installation complete! You can now launch your games from the applications launcher."
     log_info "To add to your Steam library, from within Steam go to \"Games\" -> \"Add a Non-Steam Game to My Library\" then select it from the popup."
 else
-    printf '\n'
+    printf "\n"
     log_info "Installation complete! Desktop entry creation was skipped, the launch scripts are in \"$ZOOM_SHORTCUTS_PATH\""
 fi
