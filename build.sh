@@ -5,8 +5,13 @@ cd "$(dirname "$0")"
 
 INPUT=$1
 INNOBIN=$2
+FORCED_VERSION=$3
 
-SCRIPT=$(cat "$INPUT")
+if [ -f "$INPUT" ]; then
+    SCRIPT=$(cat "$INPUT")
+else
+    SCRIPT="$INPUT"
+fi
 
 # Add licences to header
 HASHEDLIC=$(sed 's/^/# /' < LICENSE)
@@ -18,9 +23,14 @@ INNOLIC='###
 ###'
 SCRIPT=$(printf "%s" "$SCRIPT" | awk -v r="###\n$HASHEDLIC\n###\n\n$INNOLIC" '{gsub(/#__LICENSE_HERE__/,r)}1')
 
-# set version to either release tag or commit hash
-VERSION=$(git tag --points-at HEAD)
-[ -z "$VERSION" ] && VERSION="git-$(git rev-parse --short=7 HEAD)"
+# set version variable
+if [ -n "$FORCED_VERSION" ]; then
+    VERSION="$FORCED_VERSION"
+else
+    # either release tag or commit hash
+    VERSION=$(git tag --points-at HEAD)
+    [ -z "$VERSION" ] && VERSION="git-$(git rev-parse --short=7 HEAD)"
+fi
 SCRIPT=$(printf "%s" "$SCRIPT" | sed "s/INSTALLER_VERSION=\"DEV\"/INSTALLER_VERSION=\"$VERSION\"/")
 
 # Add innoextract binary between comments
