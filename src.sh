@@ -36,7 +36,7 @@ dialog_installer_select() {
         zenity --file-selection --title="Select a ZOOM Platform installer"
         return $?
     else
-        kdialog --getopenfilename . "ZOOM Platform Windows installer (*.exe)" --title "Select a ZOOM Platform installer"
+        kdialog --getopenfilename . "ZOOM Platform Windows installer(*.exe)" --title "Select a ZOOM Platform installer"
         return $?
     fi
 }
