@@ -2,11 +2,11 @@ name: Build
 on:
   push:
     tags:
-      - '*'
+      - "*"
     branches:
       - main
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 jobs:
@@ -14,21 +14,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - name: Build
-      run: |
-        chmod +x dist.sh
-        ./dist.sh
+      - name: Build
+        run: |
+          chmod +x dist.sh
+          chmod +x build.sh
+          ./dist.sh
 
-    - uses: actions/upload-artifact@v4
-      with:
-        name: zoom-platform
-        path: zoom-platform.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zoom-platform
+          path: zoom-platform.sh
 
-    - name: Release if tag
-      if: github.ref_type == 'tag'
-      uses: ncipollo/release-action@v1
-      with:
-        artifacts: "zoom-platform.sh"
-        allowUpdates: true
+      - name: Release if tag
+        if: github.ref_type == 'tag'
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "zoom-platform.sh"
+          allowUpdates: true
