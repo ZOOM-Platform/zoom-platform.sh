@@ -22,7 +22,7 @@ USE_ZENITY=1
 (command -v kdialog >/dev/null || command -v zenity >/dev/null) && [ -n "$DISPLAY" ] && CAN_USE_DIALOGS=1
 [ $CAN_USE_DIALOGS -eq 1 ] && ! command -v zenity >/dev/null && USE_ZENITY=0
 
-# Create cahce directory
+# Create cache directory
 mkdir -p "$CACHE_DIR"
 
 # .shellcheck will consume ram trying to parse INNOEXTRACT_BINARY_B64
@@ -700,8 +700,7 @@ umu_launch "$INPUT_INSTALLER" \
 
 # Watch the install log
 _currentfile=0
-# _filecount=$(("$(get_header_val 'file_count')"+"$(get_header_val 'icon_count')"))
-_filecount=219
+_filecount=$(($(get_header_val 'file_count')+$(get_header_val 'icon_count')))
 _readlog=1
 while [ $_readlog -eq 1 ]; do
     sleep 0.010
@@ -846,6 +845,18 @@ EOL
         chmod +x "$APPLICATIONS_PATH/$_name.desktop"
     fi
 done
+
+# Create uninstaller
+cat >"$INSTALL_PATH/uninstall.sh" <<EOL
+#!/bin/sh
+printf "You are about to remove %s's data and shortcuts. Are you sure you want to continue? [y/N]\n" "$GAME_NAME_SAFE"
+read in
+if [ "\$in" = "y" ] || [ "\$in" = "yes" ] || [ "\$in" = "Y" ] || [ "\$in" = "YES" ]; then
+    rm -rf "$APPLICATIONS_PATH"
+    rm -rf "$INSTALL_PATH"
+fi
+EOL
+chmod +x "$INSTALL_PATH/uninstall.sh"
 
 # If user chose to create Desktop shortcuts in the installer, symlink to XDG desktop
 # Shortcut names placed on the Desktop are always the same as what was made in the Start Menu
