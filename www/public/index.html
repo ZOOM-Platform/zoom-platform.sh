@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>zoom-platform.sh</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="shortcut icon" href="/favicon.svg" type="image/svg" />
+  <meta name="theme-color" content="#8781fd">
+  <meta name="color-scheme" content="dark" />
+  <meta name="description" content="Install and play Windows ZOOM Platform games on Linux using Proton and UMU" />
+  <meta property="og:description"
+    content="Install and play Windows ZOOM Platform games on Linux using Proton and UMU" />
+  <meta property="og:title" content="zoom-platform.sh" />
+  <meta property="og:url" content="https://zoom-platform.sh/" />
+  <meta property="og:site_name" content="zoom-platform.sh" />
+  <meta property="og:image" content="/og.png" />
+  <meta property="og:image:width" content="1280" />
+  <meta property="og:image:height" content="640" />
+  <meta property="og:image:type" content="image/png" />
+  <meta name="twitter:creator" content="@ZOOMPlatform" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+1:wght@100..900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-family-command: '3270 Condensed', monospace;
+      --color-primary: #8781fd;
+      --color-primary-lighter: #9d98fc;
+    }
+
+    @font-face {
+      font-family: '3270 Condensed';
+      font-style: normal;
+      font-display: block;
+      src: url('/font/3270Condensed-Regular.woff2') format('woff2');
+    }
+
+    ::selection,
+    ::-moz-selection {
+      color: #000;
+      background: #fff;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    html {
+      -moz-text-size-adjust: none;
+      -webkit-text-size-adjust: none;
+      text-size-adjust: none;
+    }
+
+    body,
+    h1,
+    h2,
+    h3,
+    h4,
+    p,
+    figure,
+    blockquote,
+    dl,
+    dd {
+      margin-block-end: 0;
+    }
+
+    input,
+    button,
+    textarea,
+    select {
+      font: inherit;
+    }
+
+    .color-primary {
+      color: var(--color-primary);
+    }
+
+    a {
+      color: var(--color-primary);
+    }
+
+    a:hover {
+      color: var(--color-primary-lighter);
+    }
+
+    h2 {
+      text-align: center;
+    }
+
+    .text-center {
+      text-align: center;
+    }
+
+    body {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      font-family: 'M PLUS 1', sans-serif;
+      font-optical-sizing: auto;
+      font-weight: 400;
+      font-style: normal;
+      width: 100%;
+      min-height: 100vh;
+      background-image: linear-gradient(180deg, #11101d 40vh, #292750 100%);
+      color: #dce8f1;
+      margin: 0;
+      padding: 0;
+      line-height: 1.5;
+    }
+
+    #noiselayer {
+      height: 100vh;
+      width: 100vw;
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 100000;
+      pointer-events: none;
+    }
+
+    .container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      height: 100%;
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2em;
+      padding-top: 0;
+      z-index: 100001;
+    }
+
+    #description {
+      font-size: 1.14em;
+      text-align: center;
+    }
+
+    #faq {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .sep::before {
+      content: '⯁';
+      font-size: 1em;
+      margin: 2em 0;
+      color: var(--color-primary);
+      display: block;
+      text-align: center;
+    }
+
+    blockquote {
+      margin: 2em;
+      border-left: var(--color-primary) solid 4px;
+      margin-top: 1em;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 1em;
+      border-radius: 0em .5em .5em 0em;
+    }
+
+    footer {
+      display: flex;
+      flex-direction: row;
+      justify-content: end;
+      gap: 1em;
+      text-align: right;
+      margin-top: auto;
+      width: 100%;
+      padding: 1em;
+      font-size: .8em;
+
+      @media (min-width: 610px) {
+        position: sticky;
+        bottom: 0;
+      }
+    }
+
+    footer a {
+      text-decoration: none;
+    }
+
+    footer svg {
+      vertical-align: -.25em;
+      margin-right: .25em;
+    }
+
+    .command-wrap {
+      margin-top: 2em;
+      margin-bottom: 1em;
+
+      @media (min-width: 610px) {
+        margin-top: 40vh;
+        margin-bottom: 30vh;
+      }
+    }
+
+    .command-box {
+      display: flex;
+      border-radius: .75em;
+      padding: 1em;
+      background-color: #0c0b13;
+      background-image: linear-gradient(90deg, transparent 0%, rgba(120, 113, 255, .3) 5%, transparent 10%);
+      background-size: 200%;
+      background-position: 20%;
+      border: 2px solid;
+      border-color: #2c294e;
+    }
+
+    .download-btn {
+      text-align: right;
+      font-size: .7em;
+      margin: .25em .5em;
+    }
+
+    .download-btn>a {
+      text-decoration: none;
+    }
+
+    .command-box.gradient {
+      background-position: -100%;
+      transition: all cubic-bezier(0.5, 0, 0.75, 0) 900ms;
+    }
+
+    pre {
+      font-family: var(--font-family-command);
+      font-weight: 500;
+      font-size: 1em;
+      padding: 0;
+      margin: 0;
+      margin-right: 2ch;
+
+      @media (min-width: 610px) {
+        font-size: 2em;
+      }
+    }
+
+    pre::before {
+      content: '$ ';
+      color: #545454;
+    }
+
+    code {
+      font-family: var(--font-family-command);
+      font-weight: 500;
+    }
+
+    .highlight-binary {
+      color: #C0CAF5;
+    }
+
+    .highlight-arg {
+      color: var(--color-primary);
+      animation: glow 8s infinite ease;
+    }
+
+    .highlight-pipe {
+      color: #C0CAF5;
+    }
+
+    #copy-to-clip {
+      all: unset;
+      display: flex;
+      align-items: center;
+      padding: 0 .5em;
+      cursor: pointer;
+      border-radius: .45em;
+      color: rgba(192, 202, 245, .7);
+      background-color: #11101d;
+      transition: background-color ease 100ms;
+    }
+
+    #copy-to-clip:hover {
+      background-color: #141222;
+    }
+
+    #copy-to-clip:active {
+      background-color: #1b1a2c;
+    }
+
+    #copy-to-clip svg {
+      width: 24px;
+      height: 24px;
+
+      @media (min-width: 610px) {
+        width: 32px;
+        height: 32px;
+      }
+    }
+
+    #copy-to-clip path.copy-success,
+    #copy-to-clip path.copy-error {
+      stroke-dasharray: 10;
+      stroke-dashoffset: -10;
+      transition: stroke-dashoffset ease 100ms 800ms;
+    }
+
+    #copy-to-clip path.shown {
+      stroke-dashoffset: 0;
+    }
+
+    @keyframes glow {
+
+      0%,
+      100% {
+        text-shadow: 0 0 5px #655dfc, 0 0 23px rgb(129, 122, 255);
+      }
+
+      33% {
+        text-shadow: 0 0 5px rgb(101, 93, 252), 0 0 20px #74b5ff;
+      }
+
+      66% {
+        text-shadow: 0 0 5px rgb(101, 93, 252), 0 0 23px #ca92ff;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="command-wrap">
+      <div class="command-box">
+        <pre><code><span class="highlight-binary">curl </span><span class="highlight-arg">zoom-platform.sh</span><span class="highlight-pipe"> | </span><span class="highlight-binary">sh</span></code></pre>
+        <button id="copy-to-clip" type="button" onclick="copyCmd(this)" title="Copy to Clipboard">
+          <svg fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <g stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5">
+              <path
+                d="m9 6.75h-1.25c-1.10457 0-2 .89543-2 2v8.5c0 1.1046.89543 2 2 2h8.5c1.1046 0 2-.8954 2-2v-8.5c0-1.10457-.8954-2-2-2h-1.25" />
+              <path
+                d="m14 8.25h-4c-.55228 0-1-.44772-1-1v-1.5c0-.55228.44772-1 1-1h4c.5523 0 1 .44772 1 1v1.5c0 .55228-.4477 1-1 1z" />
+              <path d="m15 11.5-3.938 4.615L9 13.808" stroke="#01ea9e" class="copy-success" />
+              <path d="M12 14v-3m0 5.5h.01M14" stroke="#ff7171" class="copy-error" />
+            </g>
+          </svg>
+        </button>
+      </div>
+      <div class="download-btn">download <a href="/zoom-platform.sh">zoom-platform.sh</a></div>
+    </div>
+    <main>
+      <section id="description">
+        <p><i class="color-primary">zoom-platform.sh</i> is an helpful tool to streamline installation, updating, and
+          playing Windows games from <a href="https://www.zoom-platform.com/">ZOOM Platform</a> on Linux using <a
+            href="https://github.com/Open-Wine-Components/umu-launcher">umu</a> and
+          Proton.</p>
+
+        <p>The script also helps you run our Windows installers on Linux and comes with some handy features to make sure
+          the process goes smoothly.</p>
+
+        <p>That includes safety checks, handling updates, installing DLCs, creating desktop entries, a simple
+          uninstaller, and of course automatically applying protonfixes.</p>
+
+        <p>The <a href="https://github.com/Open-Wine-Components/umu-protonfixes">umu-protonfixes</a> database contains
+          user submitted protonfixes, even for games not fully supported by Steam.</p>
+      </section>
+      <div class="sep" role="separator"></div>
+
+      <section id="faq">
+        <h2>What is UMU/OWC?</h2>
+        <p class="text-center">Here is how the <a href="https://github.com/Open-Wine-Components">Open Wine
+            Components</a> group describes the project:</p>
+        <blockquote>
+          We're a group of people who work on wine-oriented projects that decided to get together to unify our ideas for
+          the benefit of each other's projects across the board, as well as future projects that may use what we
+          provide. The original goal with our main project UMU is to have a unified standard for running games with
+          proton outside of steam as well as a collective shared database of known game fixes that everyone can use and
+          contribute to.
+        </blockquote>
+
+        <h2>I thought Proton was a Steam thing, does Steam need to be installed?</h2>
+        <p>Noooope, to keep things short; OWC forked parts of the Steam Linux Runtime and Proton to make them work
+          without Steam.</p>
+
+        <h2>Do all games on ZOOM Platform work with this?</h2>
+        <p>We tested our most popular games, and we submitted our own fixes for many of them; some work out of the box,
+          and some may not work at all.</p>
+        <p>Your mileage may vary, but feel free to submit any fixes to <a
+            href="https://github.com/Open-Wine-Components/umu-protonfixes">umu-protonfixes</a>.</p>
+
+        <h2>Where can I submit my own fixes to help make games work?</h2>
+        <p>If you're the tinkerer type, the <a
+            href="https://github.com/Open-Wine-Components/umu-protonfixes">umu-protonfixes</a> repo is open for anyone
+          to
+          contribute to. Check out their project and look at existing fixes for some examples. Any fixes submitted will
+          help people run that particular game in the future.</p>
+
+        <h2>Can I launch installed games through Steam?</h2>
+        <p>Depending on your distro, either use the "Add a Non-Steam Game..." option in Steam then select a game from
+          the list, or right-click the desktop entry then click "Add to Steam".</p>
+
+        <h2>I have more questions!1!!!1</h2>
+        <p>Join our <a href="https://discord.gg/8c8t7UzFHS">Discord</a> if you want to talk about Linux stuff at the <a
+            href="https://discord.gg/8c8t7UzFHS"><b>#penguin-zone</b></a>!</p>
+      </section>
+    </main>
+  </div>
+  <footer>
+    <a href="https://discord.gg/8c8t7UzFHS"><svg role="img" viewBox="0 0 24 24" width="16" height="16" fill="#fff"
+        xmlns="http://www.w3.org/2000/svg">
+        <title>Discord</title>
+        <path
+          d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z" />
+      </svg> Discord</a>
+    <a href="https://github.com/ZOOM-Platform/zoom-platform.sh"><svg role="img" viewBox="0 0 24 24" width="16"
+        height="16" fill="#fff" xmlns="http://www.w3.org/2000/svg">
+        <title>GitHub</title>
+        <path
+          d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+      </svg> Source (BSD-3)</a>
+  </footer>
+  <canvas id="noiselayer"></canvas>
+  <div id="bgtop"></div>
+  <div id="bg"></div>
+  <script>
+    const debounce = (callback, wait) => {
+      let timeoutId = null;
+      return (...args) => {
+        window.clearTimeout(timeoutId);
+        timeoutId = window.setTimeout(() => {
+          callback(...args);
+        }, wait);
+      };
+    }
+
+    // Clipboard box
+    let timeout;
+    const copyCmd = async (btn) => {
+      try {
+        await navigator.clipboard.writeText('curl zoom-platform.sh | sh');
+        btn.querySelector('.copy-success').classList.add('shown');
+        btn.querySelector('.copy-error').classList.remove('shown');
+        document.querySelector('.command-box').classList.add('gradient');
+        if (timeout) clearTimeout(timeout);
+        timeout = setTimeout(() => {
+          btn.querySelector('.copy-success').classList.remove('shown');
+          document.querySelector('.command-box').classList.remove('gradient');
+        }, 2000);
+      } catch (err) {
+        console.error(err);
+        btn.querySelector('.copy-success').classList.remove('shown');
+        btn.querySelector('.copy-error').classList.add('shown');
+      }
+    }
+
+    // Noise
+    const canvas = document.querySelector('canvas');
+    const context = canvas.getContext('2d');
+    const buffer = new OffscreenCanvas(0, 0);
+
+    const generateNoise = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const image = context.createImageData(width, height);
+      const buffer32 = new Uint32Array(image.data.buffer);
+
+      // Generate black pixel with 8% alpha at 70% probability 
+      for (let i = 0; i < buffer32.length; i++) {
+        if (Math.random() < 0.7) buffer32[i] = 0x0d000000;
+      }
+      buffer.width = width;
+      buffer.height = height;
+      buffer.getContext('2d').putImageData(image, 0, 0);
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(buffer, 0, 0, canvas.width, canvas.height);
+    }
+    window.onresize = debounce(generateNoise, 200);
+    generateNoise();
+  </script>
+</body>
+
+</html>

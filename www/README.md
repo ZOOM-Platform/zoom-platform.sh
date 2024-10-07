@@ -1,10 +1,12 @@
 # zoom-platform.sh website
-no frameworks, no fancy bundlers, just a towering html monolith
+Deno server only required if you want to be able to serve specific versions of the script.
 
 ## Deploying
 1. Clone this repo
-2. `cd www && build.sh` (All this does is download the latest release .sh and copy everything to `out`)
-3. Serve `www/out/`
+2. `./dist.sh`
+3. `./start-www.sh` (saves latest stable script to www/dist)
+4. `deno task start` (optional)
+5. Serve `www/dist`
 
 We can't use GitHub/CF Pages cause they force SSL. Server is running Nginx with a simple config:
 ```nginx
@@ -12,12 +14,16 @@ server {
         listen 80;
         listen [::]:80;
 
-        root PATH_TO_OUT_DIR;
+        root PATH_TO_PUBLIC_DIR;
         index index.html;
         server_name zoom-platform.sh;
 
         location / {
-                try_files $uri $uri/ $uri.html /index.html;
+                try_files $uri $uri/ @proxy;
+        }
+
+        location @proxy {
+                proxy_pass http://0.0.0.0:23412;
         }
 }
 ```

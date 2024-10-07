@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "lib": ["deno.window"],
+    "strict": true
+  },
+  "lint": {
+    "include": ["server.ts"],
+    "rules": {
+      "tags": ["recommended"],
+      "include": ["ban-untagged-todo"],
+      "exclude": ["no-unused-vars"]
+    }
+  },
+  "fmt": {
+    "useTabs": false,
+    "lineWidth": 80,
+    "indentWidth": 2,
+    "semiColons": false,
+    "singleQuote": true,
+    "proseWrap": "always",
+    "include": ["server.ts"]
+  },
+  "tasks": {
+    "start": "deno run --allow-read='./','../zoom-platform.sh',$(which deno) --allow-env --allow-run=git,sh --allow-sys=uid,gid --allow-net server.ts",
+    "dev": "deno run --allow-read='./','../zoom-platform.sh',$(which deno) --allow-env --allow-run=git,sh --allow-sys=uid,gid --allow-net --watch server.ts"
+  },
+  "exclude": ["dist/"]
+}
