@@ -14,12 +14,16 @@ REPO_PATH="https://github.com/ZOOM-Platform/zoom-platform.sh"
 INNOEXT_BIN="/tmp/innoextract_zoom"
 LAUNCH_SCRIPTS_PATH="$HOME"/.local/share/zoom-platform
 UMU_BIN=umu-run
+CACHE_DIR="$HOME"/.cache/zoom-platform
 
 # Check if dialogs can be used and set tool
 CAN_USE_DIALOGS=0
 USE_ZENITY=1
 (command -v kdialog >/dev/null || command -v zenity >/dev/null) && [ -n "$DISPLAY" ] && CAN_USE_DIALOGS=1
 [ $CAN_USE_DIALOGS -eq 1 ] && ! command -v zenity >/dev/null && USE_ZENITY=0
+
+# Create cahce directory
+mkdir -p "$CACHE_DIR"
 
 # .shellcheck will consume ram trying to parse INNOEXTRACT_BINARY_B64
 # when developing, just load the bin from working dir
@@ -113,6 +117,46 @@ validate_uuid() {
 
 trim_string() {
     awk '{$1=$1;print}'
+}
+
+# Download the umu-launcher zipapp
+download_umu_zipapp() {
+    _url="$1"
+    _url_resp=$(curl -o "$CACHE_DIR"/umu-launcher.tar.xz "$_url" -Ls -H "User-Agent: zoom-platform.sh/$INSTALLER_VERSION (+https://zoom-platform.sh/)")
+    _url_exit=$?
+    if [ $_url_exit -ne 0 ]; then
+        fatal_error "Could not download umu-launcher. Please install it manually."
+    fi
+
+    if ! command -v tar > /dev/null; then
+        fatal_error "tar was not found on this system."
+    fi
+
+    tar --overwrite-dir -C "$CACHE_DIR" -xf "$CACHE_DIR"/umu-launcher.tar.xz umu/umu-run
+    rm -f "$CACHE_DIR"/umu-launcher.tar.xz
+    chmod +x "$CACHE_DIR"/umu/umu-run
+    UMU_BIN="$CACHE_DIR"/umu/umu-run
+}
+
+# Get umu-launcher's url from lutris' runtime api
+get_umu_url() {
+    _api_resp=$(curl -Ls -H "User-Agent: zoom-platform.sh/$INSTALLER_VERSION (+https://zoom-platform.sh/)" \
+                    'https://lutris.net/api/runtimes?format=json')
+    _api_exit=$?
+    if [ $_api_exit -eq 0 ]; then
+        _parsed_str="$(printf '%s' "$_api_resp" | awk -F'"' '/"name":"umu"/ {for(i=1; i<=NF; i++) if($i=="url") {print $(i+2); exit}}')"
+        # Validate parsed output
+        case $_parsed_str in
+            "https://"*)
+                printf '%s' "$_parsed_str"
+                exit 0
+                ;;
+            *)
+                exit 1
+                ;;
+        esac
+    fi
+    exit 1
 }
 
 get_umu_id() {
@@ -456,15 +500,20 @@ fi
 # Check if UWU is installed
 if command -v umu-run > /dev/null; then
     UMU_BIN=umu-run
+    log_info "Using umu native"
 elif command -v "$HOME"/.local/share/umu/umu-run > /dev/null; then
     UMU_BIN="$HOME"/.local/share/umu/umu-run
+    log_info "Using $HOME/.local/share/umu/umu-run"
 elif command -v /usr/bin/umu-run > /dev/null; then
     UMU_BIN=/usr/bin/umu-run
+    log_info "Using /usr/bin/umu-run"
 elif flatpak info org.openwinecomponents.umu.umu-launcher >/dev/null 2>&1; then
     UMU_BIN="FLATPAK"
     log_info "Using umu Flatpak"
 else
-    fatal_error "umu is not installed"
+    _umu_url="$(get_umu_url)"
+    download_umu_zipapp "$_umu_url"
+    # fatal_error "umu is not installed"
 fi
 
 # If dialogs are usable and installer wasn't specified, show a dialog
@@ -651,7 +700,8 @@ umu_launch "$INPUT_INSTALLER" \
 
 # Watch the install log
 _currentfile=0
-_filecount=$(("$(get_header_val 'file_count')"+"$(get_header_val 'icon_count')"))
+# _filecount=$(("$(get_header_val 'file_count')"+"$(get_header_val 'icon_count')"))
+_filecount=219
 _readlog=1
 while [ $_readlog -eq 1 ]; do
     sleep 0.010
