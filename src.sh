@@ -144,10 +144,10 @@ get_umu_url() {
                     'https://lutris.net/api/runtimes?format=json')
     _api_exit=$?
     if [ $_api_exit -eq 0 ]; then
-        _parsed_str="$(printf '%s' "$_api_resp" | awk -F'"' '/"name":"umu"/ {for(i=1; i<=NF; i++) if($i=="url") {print $(i+2); exit}}')"
+        _parsed_str="$(printf '%s' "$_api_resp" | awk -F'"name":"umu"' '{ split($2, urls, "url\":\""); print substr(urls[2], 1, index(urls[2], "\"")-1) }')"
         # Validate parsed output
         case $_parsed_str in
-            "https://"*)
+            *"umu-launcher"*)
                 printf '%s' "$_parsed_str"
                 exit 0
                 ;;
