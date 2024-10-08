@@ -3,10 +3,9 @@ Deno server only required if you want to be able to serve specific versions of t
 
 ## Deploying
 1. Clone this repo
-2. `./dist.sh`
-3. `./start-www.sh` (saves latest stable script to www/dist)
-4. `deno task start` (optional)
-5. Serve `www/dist`
+2. `./start-www.sh` (saves latest stable script to www/public)
+3. `deno task start` (optional)
+4. Serve `www/public`
 
 We can't use GitHub/CF Pages cause they force SSL. Server is running Nginx with a simple config:
 ```nginx
