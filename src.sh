@@ -798,7 +798,7 @@ for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
     esac
 
     # Unescape windows path
-    _lnkpathlinux=$(PROTON_VERB=getnativepath umu_launch "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g; s/\\\([^\\]\)/\1/g')" 2> /dev/null)
+    _lnkpathlinux=$((PROTON_VERB=getnativepath umu_launch "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g; s/\\\([^\\]\)/\1/g')") 2> /dev/null | head -n 1)
     # Get values from .lnk
     _lnk="$(parse_lnk "$_lnkpathlinux")"
     _lnk_exe=$(printf '%s' "$_lnk" | sed -n 's/LocalBasePath://p')
