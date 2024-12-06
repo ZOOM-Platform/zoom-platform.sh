@@ -32,4 +32,5 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           artifacts: "zoom-platform.sh"
+          omitBody: true
           allowUpdates: true
