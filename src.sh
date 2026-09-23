@@ -768,9 +768,18 @@ GAME_NAME_SAFE=$(get_header_val 'default_group_name')
 PROTON_SHORTCUTS_PATH="$INSTALL_PATH/drive_c/proton_shortcuts"
 APPLICATIONS_PATH="$HOME/.local/share/applications/zoom-platform/$GAME_NAME_SAFE"
 ZOOM_SHORTCUTS_PATH="$INSTALL_PATH/drive_c/zoom_shortcuts"
+
+log_info "Running winemenubuilder manually..."
+find "$INSTALL_PATH/drive_c/users/Public/Start Menu" \
+     "$INSTALL_PATH/drive_c/ProgramData/Microsoft/Windows/Start Menu" \
+     -iname '*.lnk' 2>/dev/null | while read -r lnkfile; do
+    _winpath=$(printf '%s' "$lnkfile" | sed "s|^$INSTALL_PATH/drive_c|C:|; s|/|\\\\|g")
+    umu_launch winemenubuilder "$_winpath" > /dev/null 2>&1
+done
+
 log_info "Creating desktop entries..."
 mkdir -p "$ZOOM_SHORTCUTS_PATH"
-sleep 2 # should be enough time for wine to create shortcuts
+
 for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
     [ ! -f "$file" ] && continue # safety check if .desktop exists
 
@@ -798,7 +807,7 @@ for file in "$PROTON_SHORTCUTS_PATH"/*.desktop; do
     esac
 
     # Unescape windows path
-    _lnkpathlinux=$((PROTON_VERB=getnativepath umu_launch "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g; s/\\\([^\\]\)/\1/g')") 2> /dev/null | head -n 1)
+    _lnkpathlinux=$( (PROTON_VERB=getnativepath umu_launch "$(printf '%s' "$_lnkpathwin" | sed 's/\\\\/\\/g; s/\\ / /g; s/\\\([^\\]\)/\1/g')") 2> /dev/null | head -n 1)
     # Get values from .lnk
     _lnk="$(parse_lnk "$_lnkpathlinux")"
     _lnk_exe=$(printf '%s' "$_lnk" | sed -n 's/LocalBasePath://p')
