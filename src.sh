@@ -13,8 +13,15 @@ INSTALLER_VERSION="DEV"
 REPO_PATH="https://github.com/ZOOM-Platform/zoom-platform.sh"
 INNOEXT_BIN="/tmp/innoextract_zoom"
 LAUNCH_SCRIPTS_PATH="$HOME"/.local/share/zoom-platform
+APPLICATIONS_ROOT="$HOME"/.local/share/applications/zoom-platform
 UMU_BIN=umu-run
 CACHE_DIR="$HOME"/.cache/zoom-platform
+
+# Resolve the Desktop dir once, with a fallback in case xdg-utils isn't
+# installed. Baked into the generated uninstall.sh too, so uninstalling
+# doesn't depend on xdg-user-dir either.
+DESKTOP_DIR="$(xdg-user-dir DESKTOP 2> /dev/null)"
+[ -d "$DESKTOP_DIR" ] || DESKTOP_DIR="$HOME/Desktop"
 
 # Check if dialogs can be used and set tool
 CAN_USE_DIALOGS=0
@@ -446,7 +453,7 @@ Note:
     placed in: %s
 
 Source & issues: %s
-' "$(xdg-user-dir DESKTOP)" "$REPO_PATH"
+' "$DESKTOP_DIR" "$REPO_PATH"
 }
 
 INPUT_INSTALLER=""
@@ -766,7 +773,7 @@ fi
 # https://github.com/ValveSoftware/wine/commit/7c040c3c0f837278e2ef3bb55fc9770f61444b36
 GAME_NAME_SAFE=$(get_header_val 'default_group_name')
 PROTON_SHORTCUTS_PATH="$INSTALL_PATH/drive_c/proton_shortcuts"
-APPLICATIONS_PATH="$HOME/.local/share/applications/zoom-platform/$GAME_NAME_SAFE"
+APPLICATIONS_PATH="$APPLICATIONS_ROOT/$GAME_NAME_SAFE"
 ZOOM_SHORTCUTS_PATH="$INSTALL_PATH/drive_c/zoom_shortcuts"
 
 log_info "Running winemenubuilder manually..."
@@ -856,13 +863,28 @@ EOL
 done
 
 # Create uninstaller
+# The Desktop symlinks and Public Desktop lookup below don't exist yet at this
+# point in the script (they're created further down), so the uninstaller can't
+# just record their paths. Instead it scans the Desktop at uninstall time and
+# removes only the symlinks that point into this game's applications dir,
+# leaving every other file on the Desktop alone.
 cat >"$INSTALL_PATH/uninstall.sh" <<EOL
 #!/bin/sh
 printf "You are about to remove %s's data and shortcuts. Are you sure you want to continue? [y/N]\n" "$GAME_NAME_SAFE"
 read in
 if [ "\$in" = "y" ] || [ "\$in" = "yes" ] || [ "\$in" = "Y" ] || [ "\$in" = "YES" ]; then
+    for _desktopfile in "$DESKTOP_DIR"/*.desktop; do
+        [ -L "\$_desktopfile" ] || continue
+        case "\$(readlink "\$_desktopfile")" in
+            "$APPLICATIONS_PATH"/*) rm -f "\$_desktopfile" ;;
+        esac
+    done
     rm -rf "$APPLICATIONS_PATH"
+    # Launch script symlinks in \$XDG_DATA_HOME/zoom-platform/
+    rm -rf "$LAUNCH_SCRIPTS_PATH/$ZOOM_GUID"
     rm -rf "$INSTALL_PATH"
+    # Remove the now empty parents. Fails harmlessly while other games are installed.
+    rmdir "$APPLICATIONS_ROOT" "$LAUNCH_SCRIPTS_PATH" 2> /dev/null
 fi
 EOL
 chmod +x "$INSTALL_PATH/uninstall.sh"
@@ -874,8 +896,8 @@ if [ $CREATE_DESKTOP_ENTRIES -eq 1 ]; then
         _filename=$(basename "$file" ".lnk")
         _existingdesktoppath="$APPLICATIONS_PATH/$_filename.desktop"
         if [ -f "$_existingdesktoppath" ] && [ -f "$file" ]; then
-            log_info "Creating \"$(xdg-user-dir DESKTOP)/$_filename.desktop\""
-            ln -sf "$_existingdesktoppath" "$(xdg-user-dir DESKTOP)/$_filename.desktop"
+            log_info "Creating \"$DESKTOP_DIR/$_filename.desktop\""
+            ln -sf "$_existingdesktoppath" "$DESKTOP_DIR/$_filename.desktop"
         fi
     done
     printf "\n"
