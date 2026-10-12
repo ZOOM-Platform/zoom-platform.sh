@@ -861,6 +861,15 @@ cat >"$INSTALL_PATH/uninstall.sh" <<EOL
 printf "You are about to remove %s's data and shortcuts. Are you sure you want to continue? [y/N]\n" "$GAME_NAME_SAFE"
 read in
 if [ "\$in" = "y" ] || [ "\$in" = "yes" ] || [ "\$in" = "Y" ] || [ "\$in" = "YES" ]; then
+    if [ $CREATE_DESKTOP_ENTRIES -eq 1 ]; then
+        for file in "$INSTALL_PATH/drive_c/users/Public/Desktop"/*.lnk; do
+            _filename=\$(basename "\$file" ".lnk")
+            _shortcut=\$(xdg-user-dir DESKTOP)/\$_filename.desktop
+            if [ -f "\$file" ] && [ -f "\$_shortcut" ]; then
+                rm "\$_shortcut"
+            fi
+        done
+    fi
     rm -rf "$APPLICATIONS_PATH"
     rm -rf "$INSTALL_PATH"
 fi
